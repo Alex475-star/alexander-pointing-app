@@ -586,7 +586,6 @@ const USERS={
 // --- Supabase & Resend Config -----------------------------------------------
 const SUPA_URL='https://ukpointing-api.winter-tree-55f9.workers.dev';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lcXhkb3BodW5hdWVrc2xybGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzIxMTgsImV4cCI6MjA5Mjg0ODExOH0.Mrcy4rR4AFJr85nRkmieFw589ujtxbeuJAuRJyMvlRw';
-const RESEND_KEY='re_JzQm5wn1_4xCKAwthjPP3Jafu1pUrHYYV';
 let SUPA_TOKEN=null; // set after Supabase login
 
 // Supabase helper
@@ -599,13 +598,28 @@ async function supa(method,table,body,match){
   return r.status===204?true:r.json();
 }
 
-// Send email via Cloudflare Worker
+// Send email via Cloudflare Worker (multipart: HTML + plain-text improves deliverability)
+function htmlToText(html){
+  return (html||'')
+    .replace(/<style[\s\S]*?<\/style>/gi,'')
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,'$2 ($1)')
+    .replace(/<\/(p|div|tr|h[1-6]|li|table)>/gi,'\n')
+    .replace(/<br\s*\/?>/gi,'\n')
+    .replace(/<[^>]+>/g,'')
+    .replace(/&nbsp;/g,' ').replace(/&pound;/g,'£').replace(/&amp;/g,'&')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;|&rsquo;|&apos;/g,"'").replace(/&quot;/g,'"')
+    .replace(/[ \t]{2,}/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+}
 async function sendEmail(to,subject,html){
+  const addr='Alexander Pointing Ltd · Ivy Bank, Walmersley Old Road, Bury, BL9 6RU';
+  const contact='Tel: 0161 327 2843 · mail@ukpointing.com · www.ukpointing.com';
+  const htmlFooter='<div style="margin:28px auto 0;max-width:560px;padding:14px 24px 0;border-top:1px solid #e5e5e5;font-family:Arial,sans-serif;font-size:12px;color:#8a8a8a;line-height:1.6;">'+addr+'<br>'+contact+'</div>';
+  const text=htmlToText(html)+'\n\n----------\n'+addr.split(' · ').join('\n')+'\n'+contact;
   try{
     const r=await fetch('https://apl-mailer.winter-tree-55f9.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({to,subject,html})
+      body:JSON.stringify({to,subject,html:html+htmlFooter,text})
     });
     const data=await r.json();
     if(!r.ok){console.error('Email error:',data);return false;}
