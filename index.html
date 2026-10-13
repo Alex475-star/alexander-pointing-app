@@ -372,15 +372,28 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
         <label>Password</label>
         <input class="login-input" id="login-pass" type="password" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-              <input type="checkbox" id="remember-me" style="width:16px;height:16px;accent-color:#276749;cursor:pointer;">
-              <label for="remember-me" style="font-size:13px;color:#555;cursor:pointer;">Remember this device</label>
-            </div>
+      <div style="font-size:12px;color:#888;margin-bottom:12px;">You'll stay signed in on this device until you log out.</div>
             <button class="login-btn" onclick="doLogin()">Sign In</button>
       <div class="privacy-link" style="margin-top:14px;">
         <a onclick="showPrivacy()" href="#">Privacy Policy</a> · UK GDPR Compliant
       </div>
+      <div id="setup-link" style="display:none;text-align:center;margin-top:10px;"><a onclick="showSetup()" href="#" style="font-size:13px;color:#276749;font-weight:600;">First-time setup</a></div>
       <div class="login-footer">Alexander Pointing Ltd · Secure Access</div>
+    </div>
+
+    <!-- First-time setup (shown only while no login exists) -->
+    <div id="login-setup" style="display:none;">
+      <div class="login-logo" style="margin-bottom:6px;">First-time setup</div>
+      <div class="login-sub" style="margin-bottom:12px;">Create your login. A code will be emailed to confirm it's you.</div>
+      <div id="setup-msg" style="font-size:12px;margin-bottom:10px;text-align:center;"></div>
+      <button class="login-btn" onclick="setupRequest()">Email me a setup code</button>
+      <div id="setup-form" style="display:none;margin-top:14px;">
+        <div class="login-field"><label>Code from email</label><input class="login-input" id="setup-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+        <div class="login-field"><label>Choose a username</label><input class="login-input" id="setup-user" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+        <div class="login-field"><label>Choose a password (10+ characters)</label><input class="login-input" id="setup-pass" type="password" autocomplete="new-password"></div>
+        <div class="login-field"><label>Confirm password</label><input class="login-input" id="setup-pass2" type="password" autocomplete="new-password"></div>
+        <button class="login-btn" onclick="setupComplete()">Create login</button>
+      </div>
     </div>
 
     <!-- Step 2: MFA Code -->
@@ -576,26 +589,32 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotos(this)">
 
 <script>
-// --- Auth & MFA ---------------------------------------------------------------
-// NOTE: In production these credentials are replaced by Supabase Auth.
-// MFA codes are sent via Resend email API from a Supabase Edge Function.
-const USERS={
-  'apl':{pass:'admin',email:'mail@ukpointing.com'}
-};
-
-// --- Supabase & Resend Config -----------------------------------------------
-const SUPA_URL='https://ukpointing-api.winter-tree-55f9.workers.dev';
-const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lcXhkb3BodW5hdWVrc2xybGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzIxMTgsImV4cCI6MjA5Mjg0ODExOH0.Mrcy4rR4AFJr85nRkmieFw589ujtxbeuJAuRJyMvlRw';
-let SUPA_TOKEN=null; // set after Supabase login
-
-// Supabase helper
-async function supa(method,table,body,match){
-  const headers={'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+(SUPA_TOKEN||SUPA_ANON),'Prefer':'return=representation'};
-  let url=`${SUPA_URL}/rest/v1/${table}`;
-  if(match)url+=`?${match}`;
-  const r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
-  if(!r.ok){const e=await r.text();console.error('Supabase error:',e);return null;}
-  return r.status===204?true:r.json();
+// --- Auth & API configuration -------------------------------------------------
+// Staff sign in with a password + emailed code (checked by the Worker, never in this page).
+// Customers only ever use /public/* with the unguessable link key in their link.
+const SUPA_URL='https://ukpointing-api-v2.winter-tree-55f9.workers.dev';
+function getToken(){try{return localStorage.getItem('apl_token')||'';}catch(e){return '';}}
+function authHdr(){return {'Authorization':'Bearer '+getToken()};}
+async function apiFetch(url,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({},opts.headers||{},authHdr());
+  const r=await fetch(url,opts);
+  if(r.status===401&&getToken()){forceLogout();}
+  return r;
+}
+async function apiPost(path,body){
+  const r=await apiFetch(SUPA_URL+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let d={};try{d=await r.json();}catch(e){}
+  return {ok:r.ok,status:r.status,data:d};
+}
+function newShareKey(){return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function ensureShareKey(doc){
+  if(!doc.shareKey){doc.shareKey=newShareKey();}
+  saveLocal();
+  const table=doc.ref.includes('invoice')?'invoices':'estimates';
+  const r=await apiFetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:doc.ref,data:doc})});
+  if(!r.ok)throw new Error('could not save link key ('+r.status+')');
+  return doc.shareKey;
 }
 
 // Send email via Cloudflare Worker (multipart: HTML + plain-text improves deliverability)
@@ -616,28 +635,29 @@ async function sendEmail(to,subject,html){
   const htmlFooter='<div style="margin:28px auto 0;max-width:560px;padding:14px 24px 0;border-top:1px solid #e5e5e5;font-family:Arial,sans-serif;font-size:12px;color:#8a8a8a;line-height:1.6;">'+addr+'<br>'+contact+'</div>';
   const text=htmlToText(html)+'\n\n----------\n'+addr.split(' · ').join('\n')+'\n'+contact;
   try{
-    const r=await fetch('https://apl-mailer.winter-tree-55f9.workers.dev',{
+    const r=await apiFetch(SUPA_URL+'/mail/send',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({to,subject,html:html+htmlFooter,text})
     });
-    const data=await r.json();
+    let data={};try{data=await r.json();}catch(e){}
     if(!r.ok){console.error('Email error:',data);return false;}
     return true;
   }catch(e){console.error('Email error:',e);return false;}
 }
-const TRUSTED_DEVICE_KEY='apl_trusted';
-let mfaCode='';
+let mfaPending='';
 let mfaUser='';
+let setupPending='';
+let _busyMFA=false;
 
-function isTrustedDevice(){
-  const token=localStorage.getItem(TRUSTED_DEVICE_KEY);
-  return token&&token.length===32;
-}
-
-function trustDevice(){
-  const token=Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
-  localStorage.setItem(TRUSTED_DEVICE_KEY,token);
+function storeSession(token,user){try{localStorage.setItem('apl_token',token);localStorage.setItem('apl_user',user||'');}catch(e){}}
+function clearSession(){try{localStorage.removeItem('apl_token');localStorage.removeItem('apl_user');localStorage.removeItem('apl_auth_persist');localStorage.removeItem('apl_trusted');sessionStorage.removeItem('apl_auth');}catch(e){}}
+function showLoginError(msg){const err=document.getElementById('login-error');err.textContent=msg;err.style.display='block';}
+function forceLogout(){
+  clearSession();
+  try{document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-step1').style.display='block';document.getElementById('login-step2').style.display='none';
+  showLoginError('You have been signed out. Please sign in again.');}catch(e){}
 }
 
 async function doLogin(){
@@ -645,90 +665,40 @@ async function doLogin(){
   const pass=document.getElementById('login-pass').value;
   const err=document.getElementById('login-error');
   const btn=document.querySelector('#login-step1 .login-btn');
+  err.style.display='none';
   if(btn){btn.textContent='Signing in...';btn.disabled=true;}
-
-  // Try Supabase auth first, fall back to local credentials
-  let authed=false;
   try{
-    const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPA_ANON},
-      body:JSON.stringify({email:USERS[user]?USERS[user].email:user,password:pass})
-    });
-    if(r.ok){
-      const d=await r.json();
-      SUPA_TOKEN=d.access_token;
-      authed=true;
-    }
-  }catch(e){console.log('Supabase auth failed, using local');}
-
-  // Fall back to local credentials (check stored first, then hardcoded defaults)
-  if(!authed){
-    let storedUser='iain',storedPass='admin';
-    try{const d=localStorage.getItem(SKEY);if(d){const p=JSON.parse(d);if(p.co&&p.co.loginUser)storedUser=p.co.loginUser;if(p.co&&p.co.loginPass)storedPass=p.co.loginPass;}}catch(e){}
-    if(user===storedUser&&pass===storedPass){authed=true;}
-    // Also accept hardcoded credentials as fallback
-    if(!authed&&user==='apl'&&pass==='admin'){authed=true;}
-  }
-
-  if(btn){btn.textContent='Sign In';btn.disabled=false;}
-
-  if(authed){
-    err.style.display='none';
-    mfaUser=user;
-    const rememberMe=document.getElementById('remember-me')?.checked;
-    if(isTrustedDevice()){
-      completeLogin(user);
-    } else if(rememberMe){
-      // Trust this device immediately without MFA
-      trustDevice();
-      completeLogin(user);
-    } else {
-      await sendMFACode();
+    const r=await apiPost('/auth/login',{username:user,password:pass});
+    if(r.ok&&r.data.step==='code'){
+      mfaPending=r.data.pending;mfaUser=user;
+      document.getElementById('login-pass').value='';
       document.getElementById('login-step1').style.display='none';
       document.getElementById('login-step2').style.display='block';
+      const notice=document.getElementById('mfa-demo-notice');
+      if(notice){notice.innerHTML='📧 Code sent to your email — check your inbox';notice.style.background='#f0faf4';notice.style.borderColor='#a7f3d0';notice.style.color='#276749';}
+      for(let i=0;i<6;i++){const d=document.getElementById('d'+i);if(d)d.value='';}
       document.getElementById('d0').focus();
+    } else {
+      showLoginError((r.data&&r.data.message)||'Could not sign in. Please try again.');
+      document.getElementById('login-pass').value='';
+      document.getElementById('login-pass').focus();
     }
-  } else {
-    err.style.display='block';
-    document.getElementById('login-pass').value='';
-    document.getElementById('login-pass').focus();
+  }catch(e){
+    showLoginError('Could not reach the server. Check your connection and try again.');
   }
+  if(btn){btn.textContent='Sign In';btn.disabled=false;}
 }
 
-async function sendMFACode(){
-  mfaCode=String(Math.floor(100000+Math.random()*900000));
-  document.getElementById('mfa-error').style.display='none';
-  for(let i=0;i<6;i++){const d=document.getElementById('d'+i);if(d)d.value='';}
-  const notice=document.getElementById('mfa-demo-notice');
-
-  // Send via Resend
-  const email=USERS[mfaUser]?USERS[mfaUser].email:'mail@ukpointing.com';
-  const sent=await sendEmail(email,
-    'Your Alexander Pointing App login code',
-    `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px;">
-      <h2 style="color:#1a2332;">Your login code</h2>
-      <p style="font-size:36px;font-weight:700;letter-spacing:8px;color:#276749;">${mfaCode}</p>
-      <p style="color:#888;font-size:14px;">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
-      <p style="color:#888;font-size:12px;">Alexander Pointing Ltd</p>
-    </div>`
-  );
-
-  if(notice){
-    if(sent){
-      notice.innerHTML=`📧 Code sent to ${email} — check your inbox`;
-      notice.style.background='#f0faf4';notice.style.borderColor='#a7f3d0';notice.style.color='#276749';
-    } else {
-      notice.innerHTML=`📧 Could not send email — your code is: <strong style="font-size:16px;letter-spacing:2px;">${mfaCode}</strong>`;
-    }
-  }
+function sendMFACode(){
+  // A new code is issued by signing in again (the server only sends codes after a correct password)
+  document.getElementById('login-step2').style.display='none';
+  document.getElementById('login-step1').style.display='block';
+  showLoginError('Enter your password again to receive a new code.');
 }
 
 function mfaInput(el,idx){
-  // Move to next digit on input
   el.value=el.value.replace(/[^0-9]/g,'').slice(-1);
   if(el.value&&idx<5)document.getElementById('d'+(idx+1)).focus();
-  // Auto submit when all 6 filled
   const code=[...Array(6)].map((_,i)=>document.getElementById('d'+i).value).join('');
   if(code.length===6)setTimeout(verifyMFA,200);
 }
@@ -739,23 +709,73 @@ function mfaKey(e,idx){
   }
 }
 
-function verifyMFA(){
+async function verifyMFA(){
+  if(_busyMFA)return;
   const entered=[...Array(6)].map((_,i)=>document.getElementById('d'+i).value).join('');
-  if(entered===mfaCode){
-    trustDevice();
-    completeLogin(mfaUser);
-  } else {
-    document.getElementById('mfa-error').style.display='block';
-    for(let i=0;i<6;i++){const d=document.getElementById('d'+i);if(d)d.value='';}
-    document.getElementById('d0').focus();
+  if(entered.length!==6)return;
+  _busyMFA=true;
+  const errEl=document.getElementById('mfa-error');
+  try{
+    const r=await apiPost('/auth/verify',{pending:mfaPending,code:entered,device:(navigator.userAgent||'').slice(0,100)});
+    if(r.ok&&r.data.token){
+      storeSession(r.data.token,r.data.username);
+      errEl.style.display='none';
+      completeLogin(r.data.username);
+    } else {
+      errEl.textContent=(r.data&&r.data.message)||'Incorrect code. Please try again.';
+      errEl.style.display='block';
+      for(let i=0;i<6;i++){const d=document.getElementById('d'+i);if(d)d.value='';}
+      document.getElementById('d0').focus();
+    }
+  }catch(e){
+    errEl.textContent='Could not reach the server. Try again.';errEl.style.display='block';
   }
+  _busyMFA=false;
+}
+
+// ---- First-time setup (only offered while no login exists on the server) ----
+async function checkSetupNeeded(){
+  try{
+    const r=await apiFetch(SUPA_URL+'/auth/status');
+    if(!r.ok)return;
+    const d=await r.json();
+    const el=document.getElementById('setup-link');
+    if(el)el.style.display=d.setupNeeded?'block':'none';
+  }catch(e){}
+}
+function showSetup(){
+  document.getElementById('login-step1').style.display='none';
+  document.getElementById('login-setup').style.display='block';
+}
+async function setupRequest(){
+  const msg=document.getElementById('setup-msg');
+  const r=await apiPost('/auth/setup/request',{});
+  if(r.ok){
+    setupPending=r.data.pending;
+    msg.style.color='#276749';msg.textContent='Code sent to '+r.data.sentTo+'. Enter it below with the username and password you want to use.';
+    document.getElementById('setup-form').style.display='block';
+  } else { msg.style.color='#c62828';msg.textContent=(r.data&&r.data.message)||'Could not start setup.'; }
+}
+async function setupComplete(){
+  const msg=document.getElementById('setup-msg');
+  const u=document.getElementById('setup-user').value.trim().toLowerCase();
+  const p1=document.getElementById('setup-pass').value;
+  const p2=document.getElementById('setup-pass2').value;
+  const code=document.getElementById('setup-code').value.trim();
+  if(p1!==p2){msg.style.color='#c62828';msg.textContent='Passwords do not match.';return;}
+  const r=await apiPost('/auth/setup/complete',{pending:setupPending,code:code,username:u,password:p1,device:(navigator.userAgent||'').slice(0,100)});
+  if(r.ok&&r.data.token){
+    storeSession(r.data.token,r.data.username);
+    document.getElementById('login-setup').style.display='none';
+    document.getElementById('setup-pass').value='';document.getElementById('setup-pass2').value='';
+    completeLogin(r.data.username);
+  } else { msg.style.color='#c62828';msg.textContent=(r.data&&r.data.message)||'Setup failed.'; }
 }
 
 function completeLogin(user){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   sessionStorage.setItem('apl_auth',user);
-  if(isTrustedDevice())localStorage.setItem('apl_auth_persist',user);
   // Reset login form for next time
   document.getElementById('login-step1').style.display='block';
   document.getElementById('login-step2').style.display='none';
@@ -765,14 +785,8 @@ function completeLogin(user){
 }
 
 function checkAuth(){
-  // On trusted devices restore session from localStorage automatically
-  if(!sessionStorage.getItem('apl_auth')){
-    if(isTrustedDevice()){
-      const persisted=localStorage.getItem('apl_auth_persist');
-      if(persisted){
-        sessionStorage.setItem('apl_auth',persisted);
-      }
-    }
+  if(!sessionStorage.getItem('apl_auth')&&getToken()){
+    sessionStorage.setItem('apl_auth',(function(){try{return localStorage.getItem('apl_user')||'user';}catch(e){return 'user';}})());
   }
   const auth=sessionStorage.getItem('apl_auth');
   if(auth){
@@ -794,14 +808,13 @@ function checkAuth(){
 }
 
 function logout(){
-  sessionStorage.removeItem('apl_auth');
-  localStorage.removeItem('apl_auth_persist');
-  localStorage.removeItem('apl_trusted');
+  try{apiFetch(SUPA_URL+'/auth/logout',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:'{}',keepalive:true});}catch(e){}
+  clearSession();
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('login-user').value='';
   document.getElementById('login-pass').value='';
-  mfaCode='';mfaUser='';
+  mfaPending='';mfaUser='';
 }
 
 function showPrivacy(){
@@ -873,7 +886,7 @@ A 2-year workmanship guarantee applies to repointing on external elevations of r
 By accepting this quotation, the customer agrees to be bound by these Terms & Conditions in full. Written acceptance is required before works commence.
 
 For queries contact us on 0161 327 2843.`;
-const DEF_CO={loginUser:'apl',loginPass:'admin',firstName:'Iain',lastName:'Alexander',email:'mail@ukpointing.com',phone:'0161 327 2843',mobile:'07786 436 863',companyName:'Alexander Pointing Ltd',address:'Ivy Bank, Walmersley Old Road',city:'Bury',postcode:'BL9 6RU',website:'www.ukpointing.com',companyNumber:'87688895',vatNumber:'185650778',bankName:'NatWest',bankAccount:'18135382',sortCode:'01-01-42',quoteExpiry:'90',defaultVat:false,
+const DEF_CO={firstName:'Iain',lastName:'Alexander',email:'mail@ukpointing.com',phone:'0161 327 2843',mobile:'07786 436 863',companyName:'Alexander Pointing Ltd',address:'Ivy Bank, Walmersley Old Road',city:'Bury',postcode:'BL9 6RU',website:'www.ukpointing.com',companyNumber:'87688895',vatNumber:'185650778',bankName:'NatWest',bankAccount:'18135382',sortCode:'01-01-42',quoteExpiry:'90',defaultVat:false,
 googleReviewUrl:'https://g.page/r/YOUR-GOOGLE-REVIEW-LINK/review',
 quoteEmailSubject:'Your Quote from Alexander Pointing Ltd',
 quoteEmailBody:`Dear [Name],
@@ -930,11 +943,10 @@ async function supaUpsertDoc(doc, isInvoice){
     };
     const headers = {
       'Content-Type':'application/json',
-      'apikey': SUPA_ANON,
-      'Authorization': 'Bearer '+SUPA_ANON,
+      ...authHdr(),
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     };
-    await fetch(SUPA_URL+'/rest/v1/'+table, {
+    await apiFetch(SUPA_URL+'/rest/v1/'+table, {
       method: 'POST',
       headers,
       body: JSON.stringify(row)
@@ -942,28 +954,13 @@ async function supaUpsertDoc(doc, isInvoice){
   }catch(e){console.log('Supabase save error:',e);}
 }
 
-// Fetch a single quote/invoice by ref for customer view
-async function supaFetchDoc(ref){
-  try{
-    const table = ref.includes('invoice') ? 'invoices' : 'estimates';
-    const headers = {
-      'apikey': SUPA_ANON,
-      'Authorization': 'Bearer '+SUPA_ANON
-    };
-    const r = await fetch(SUPA_URL+'/rest/v1/'+table+'?ref=eq.'+ref+'&select=data&limit=1', {headers});
-    if(!r.ok) return null;
-    const rows = await r.json();
-    return rows&&rows.length>0 ? rows[0].data : null;
-  }catch(e){console.log('Supabase fetch error:',e);return null;}
-}
-
 // Load all data from Supabase on startup (merges with localStorage)
 async function loadFromSupabase(){
   try{
-    const headers={'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON};
+    const headers={...authHdr()};
     const [estRes,invRes]=await Promise.all([
-      fetch(SUPA_URL+'/rest/v1/estimates?select=ref,data&order=ref.desc&limit=500',{headers}),
-      fetch(SUPA_URL+'/rest/v1/invoices?select=data&order=ref.desc&limit=500',{headers})
+      apiFetch(SUPA_URL+'/rest/v1/estimates?select=ref,data&order=ref.desc&limit=500',{headers}),
+      apiFetch(SUPA_URL+'/rest/v1/invoices?select=data&order=ref.desc&limit=500',{headers})
     ]);
     const estRows=estRes.ok?await estRes.json():null;
     const invRows=invRes.ok?await invRes.json():null;
@@ -1043,25 +1040,24 @@ async function syncToSupabase(){
   try{
     const headers = {
       'Content-Type':'application/json',
-      'apikey': SUPA_ANON,
-      'Authorization': 'Bearer '+SUPA_ANON,
+      ...authHdr(),
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     };
     if(S.estimates&&S.estimates.length>0){
-      await fetch(SUPA_URL+'/rest/v1/estimates', {
+      await apiFetch(SUPA_URL+'/rest/v1/estimates', {
         method:'POST', headers,
         body: JSON.stringify(S.estimates.map(e=>({ref:e.ref,data:e})))
       });
     }
     if(S.invoices&&S.invoices.length>0){
-      await fetch(SUPA_URL+'/rest/v1/invoices', {
+      await apiFetch(SUPA_URL+'/rest/v1/invoices', {
         method:'POST', headers,
         body: JSON.stringify(S.invoices.map(i=>({ref:i.ref,data:i})))
       });
     }
     // Save clients, activity, counters and settings as a meta row
     const meta={clients:S.clients||[],activity:S.activity||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};
-    await fetch(SUPA_URL+'/rest/v1/estimates', {
+    await apiFetch(SUPA_URL+'/rest/v1/estimates', {
       method:'POST', headers,
       body: JSON.stringify([{ref:'_META_',data:meta}])
     });
@@ -1094,10 +1090,10 @@ function loadData(){
     window._pollInterval=setInterval(async function(){
       if(!sessionStorage.getItem('apl_auth'))return;
       try{
-        const hdrs={'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON};
+        const hdrs={...authHdr()};
         const [er,ir]=await Promise.all([
-          fetch(SUPA_URL+'/rest/v1/estimates?select=ref,data&order=ref.desc&limit=500',{headers:hdrs}),
-          fetch(SUPA_URL+'/rest/v1/invoices?select=data&order=ref.desc&limit=500',{headers:hdrs})
+          apiFetch(SUPA_URL+'/rest/v1/estimates?select=ref,data&order=ref.desc&limit=500',{headers:hdrs}),
+          apiFetch(SUPA_URL+'/rest/v1/invoices?select=data&order=ref.desc&limit=500',{headers:hdrs})
         ]);
         const remEsts=(er.ok?await er.json():[]).filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
         const remInvs=(ir.ok?await ir.json():[]).filter(r=>r.data).map(r=>r.data);
@@ -2038,7 +2034,8 @@ function openShareModal(ref){
   const isI=ref.includes('invoice');
   const val=fmt(tot(doc.lineItems));
   const c=S.co;
-  const liveLink=`https://updates.ukpointing.com/?quote=${ref}`;
+  if(!doc.shareKey){doc.shareKey=newShareKey();}
+  const liveLink=`https://updates.ukpointing.com/?quote=${ref}&k=${doc.shareKey}`;
   const reviewLink=c.googleReviewUrl||'';
 
   // Build from saved templates
@@ -2082,6 +2079,7 @@ async function doSendEmail(ref,link,btn){
   const to=doc.email||'';
   if(!to){toast('No email address on file — use copy or share instead','#e65100');return;}
   btn.textContent='Sending...';btn.disabled=true;
+  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');btn.textContent='\u2709\uFE0F Send Email';btn.disabled=false;return;}
   // Use the link parameter directly — don't regex-extract from body (could grab Google Review URL first)
   const bodyHtml=body.replace(/https?:\/\/[^\s]+/g,'').replace(/\n/g,'<br>').replace(/View your quote here:<br>/i,'').replace(/View your invoice here:<br>/i,'');
   const html=`<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">${bodyHtml}<br><br><a href="${link}" style="display:inline-block;padding:14px 28px;background:#276749;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">View Your ${isI?'Invoice':'Quote'} →</a>
@@ -2098,6 +2096,7 @@ async function doSendEmail(ref,link,btn){
 }
 async function doShareWithBody(ref,link){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
+  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');return;}
   const isI=ref.includes('invoice');
   const subj=document.getElementById('share-subj')?.value||'';
   const body=document.getElementById('share-body')?.value||'';
@@ -2122,6 +2121,7 @@ async function doShareWithBody(ref,link){
 
 async function copyShareBody(ref,link){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
+  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');return;}
   const body=document.getElementById('share-body')?.value||link;
   try{await navigator.clipboard.writeText(body);}catch(e){}
   toast('📋 Message copied to clipboard');
@@ -2166,7 +2166,7 @@ function convertToInv(ref){
   if(!confirm('Convert estimate #'+e.ref+' to invoice?'))return;
   const inv=JSON.parse(JSON.stringify(e));
   inv.ref='aplinvoice'+S.nextI++;inv.status='ACTIVE';inv.date=new Date().toISOString().split('T')[0];
-  delete inv.signature;delete inv.signedAt;delete inv.expiryDate;
+  delete inv.signature;delete inv.signedAt;delete inv.expiryDate;delete inv.shareKey;
   delete inv.emailOpened;delete inv.viewCount;delete inv.openCount;delete inv.openedAt;
   if(!inv.lineItems.find(l=>l.name==='Bank Details')){
     const c=S.co;
@@ -2287,10 +2287,10 @@ async function deleteDoc(ref,type){
   if(!confirm('Delete this '+label+'? This cannot be undone.'))return;
   if(type==='inv'){
     S.invoices=S.invoices.filter(i=>i.ref!==ref);
-    try{const h={'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON};await fetch(SUPA_URL+'/rest/v1/invoices?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
+    try{const h={...authHdr()};await apiFetch(SUPA_URL+'/rest/v1/invoices?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
   }else{
     S.estimates=S.estimates.filter(e=>e.ref!==ref);
-    try{const h={'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON};await fetch(SUPA_URL+'/rest/v1/estimates?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
+    try{const h={...authHdr()};await apiFetch(SUPA_URL+'/rest/v1/estimates?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
   }
   saveData();render();toast(label.charAt(0).toUpperCase()+label.slice(1)+' deleted');
 }
@@ -2673,13 +2673,14 @@ function duplicateDoc(ref){
     newDoc.ref='aplinvoice'+S.nextI++;
     newDoc.status='ACTIVE';
     newDoc.date=new Date().toISOString().substring(0,10);
+    delete newDoc.shareKey;
     S.invoices.unshift(newDoc);
   } else {
     newDoc.ref='aplquote'+S.nextQ++;
     newDoc.status='PENDING';
     newDoc.date=new Date().toISOString();
     newDoc.dateInput=new Date().toISOString().substring(0,10);
-    newDoc.signature=null;newDoc.signedAt=null;
+    newDoc.signature=null;newDoc.signedAt=null;delete newDoc.shareKey;
     newDoc.emailed=false;newDoc.viewCount=0;newDoc.openCount=0;
     S.estimates.unshift(newDoc);
   }
@@ -3199,9 +3200,9 @@ async function clearAllData(){
   S.estimates=[];S.invoices=[];S.clients=[];S.activity=[];
   // Delete from Supabase
   try{
-    const headers={'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON};
-    await fetch(SUPA_URL+'/rest/v1/estimates?ref=neq.NONE',{method:'DELETE',headers});
-    await fetch(SUPA_URL+'/rest/v1/invoices?ref=neq.NONE',{method:'DELETE',headers});
+    const headers={'Content-Type':'application/json',...authHdr()};
+    await apiFetch(SUPA_URL+'/rest/v1/estimates?ref=neq.NONE',{method:'DELETE',headers});
+    await apiFetch(SUPA_URL+'/rest/v1/invoices?ref=neq.NONE',{method:'DELETE',headers});
   }catch(e){console.log('Supabase delete error:',e);}
   saveData();
   if(trusted)localStorage.setItem('apl_trusted',trusted);
@@ -3223,9 +3224,10 @@ function rSettings(m){
     m.innerHTML='<div class="topbar"><h1>Settings</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="nav(\'dashboard\')">Cancel</button><button class="bg" onclick="saveSettings()">Save</button></div></div>'
       +'<div style="display:flex;flex:1;overflow:hidden;"><div class="sn">'+tabNav+'</div>'
       +'<div class="sp"><div class="sc">'
-      +'<div style="margin-bottom:20px;padding:14px;background:#fff8e1;border-radius:8px;border-left:4px solid #f59e0b;font-size:13px;color:#555;">Change your login username and password. You will be logged out after saving.</div>'
-      +'<div class="fl"><label>Username</label><input class="fi" id="s-lu" value="'+(c.loginUser||'iain')+'" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
-      +'<div class="fl"><label>New Password</label><input class="fi" id="s-lp" type="password" placeholder="Leave blank to keep current" autocomplete="new-password"></div>'
+      +'<div style="margin-bottom:20px;padding:14px;background:#fff8e1;border-radius:8px;border-left:4px solid #f59e0b;font-size:13px;color:#555;">Change your login username and password. Your other signed-in devices will be signed out.</div>'
+      +'<div class="fl"><label>Username</label><input class="fi" id="s-lu" value="'+((function(){try{return localStorage.getItem('apl_user')||'';}catch(e){return '';}})())+'" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
+      +'<div class="fl"><label>Current Password</label><input class="fi" id="s-lcur" type="password" placeholder="Required to change anything" autocomplete="current-password"></div>'
+      +'<div class="fl"><label>New Password</label><input class="fi" id="s-lp" type="password" placeholder="10+ characters" autocomplete="new-password"></div>'
       +'<div class="fl"><label>Confirm Password</label><input class="fi" id="s-lp2" type="password" placeholder="Confirm new password" autocomplete="new-password"></div>'
       +'</div></div></div>';
     return;
@@ -3351,16 +3353,17 @@ function saveSettings(){
   const t=S.settab;
   if(t==='security'){
     const lu=g('s-lu').trim().toLowerCase();
-    const lp=g('s-lp');const lp2=g('s-lp2');
+    const cur=g('s-lcur');const lp=g('s-lp');const lp2=g('s-lp2');
+    if(!cur){alert('Enter your current password to make changes.');return;}
+    if(!lp){alert('Enter a new password (10 or more characters).');return;}
+    if(lp!==lp2){alert('Passwords do not match.');return;}
     if(!lu){alert('Username cannot be empty.');return;}
-    if(lp&&lp!==lp2){alert('Passwords do not match.');return;}
-    S.co.loginUser=lu;
-    if(lp)S.co.loginPass=lp;
-    saveData();
-    toast('Credentials updated — please log in again.');
-    sessionStorage.removeItem('apl_auth');
-    localStorage.removeItem('apl_trusted');
-    setTimeout(function(){location.reload();},1500);
+    apiFetch(SUPA_URL+'/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current:cur,newPassword:lp,newUsername:lu})})
+      .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        if(res.ok){try{localStorage.setItem('apl_user',res.d.username||lu);}catch(e){}toast('Login updated ✓');rSettings(document.getElementById('main-area'));}
+        else{alert((res.d&&res.d.message)||'Could not change the password.');}
+      }).catch(function(){alert('Could not reach the server.');});
     return;
   }
   if(t==='account')Object.assign(S.co,{firstName:g('s-fn'),lastName:g('s-ln'),email:g('s-em'),phone:g('s-ph'),mobile:g('s-mob')});
@@ -3845,22 +3848,14 @@ async function submitCustSignature(ref){
     const blank=document.createElement('canvas');
     blank.width=canvas.width;blank.height=canvas.height;
     if(canvas.toDataURL()===blank.toDataURL()){alert('Please sign before accepting.');return;}
-    const doc=S.custDoc||(S.estimates.find(function(e){return e.ref===ref;})||S.invoices.find(function(i){return i.ref===ref;}));
+    let doc=S.custDoc||(S.estimates.find(function(e){return e.ref===ref;})||S.invoices.find(function(i){return i.ref===ref;}));
     if(!doc){alert('Quote data not found. Please refresh and try again.');return;}
     doc.signature=canvas.toDataURL('image/png');
     doc.signedAt=new Date().toISOString();
     doc.status='APPROVED';
-    // Save directly to Supabase
-    const table=doc.ref.includes('invoice')?'invoices':'estimates';
-    const hdrs={'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'resolution=merge-duplicates,return=minimal'};
-    const payload=JSON.stringify([{ref:doc.ref,data:doc}]);
-    let r=null;
-    try{
-      r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:hdrs,body:payload,keepalive:true});
-    }catch(e1){
-      r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:hdrs,body:payload});
-    }
-    if(!r||!r.ok){throw new Error('your acceptance could not be saved (code '+(r?r.status:'network')+')');}
+    const sigResp=await fetch(SUPA_URL+'/public/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:doc.ref,k:S.custKey||'',signature:doc.signature})});
+    if(!sigResp.ok&&sigResp.status!==409){throw new Error('your acceptance could not be saved (code '+sigResp.status+')');}
+    try{const sj=await sigResp.json();if(sj&&sj.doc){doc=sj.doc;S.custDoc=sj.doc;}}catch(e){}
     // Email notification to Iain
     const val=fmt(calcGrandTotal(doc));
     const c=S.co;
@@ -3913,72 +3908,45 @@ applyMobileLayout();
 (function(){
   const urlParams=new URLSearchParams(window.location.search);
   const quoteRef=urlParams.get('quote')||urlParams.get('invoice');
+  const linkKey=urlParams.get('k')||'';
   if(quoteRef){
-    // Load local data first
-    try{
-      const d=localStorage.getItem(SKEY);
-      if(d){const p=JSON.parse(d);Object.assign(S,p);if(!S.co)S.co={...DEF_CO};else S.co={...DEF_CO,...S.co};}
-    }catch(e){}
-    // Always ensure company defaults are present
+    S.custKey=linkKey;
     if(!S.co)S.co={...DEF_CO};
     S.co={...DEF_CO,...S.co};
-    // Always fetch from Supabase — never use local cache for customer view
-    // (local data may be stale, signed from a previous test, or from a different device)
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='none';
     document.getElementById('cust-page').style.display='block';
-    document.getElementById('cust-body').innerHTML='<div style="text-align:center;padding:60px 20px;"><div style="font-size:32px;margin-bottom:16px;">⏳</div><div style="font-size:16px;color:#555;">Loading your quote...</div></div>';
-    // Fetch META first (for T&C + company settings), then fetch the doc
-    supaFetchDoc('_META_').then(function(metaDoc){
-      if(metaDoc&&metaDoc.co){S.co={...DEF_CO,...metaDoc.co};}
-      return supaFetchDoc(quoteRef);
-    }).then(function(remoteDoc){
-      if(remoteDoc){
-        if(!remoteDoc.quoteFooter)remoteDoc.quoteFooter=S.co.quoteFooter||'';
-        if(!remoteDoc.invoiceFooter)remoteDoc.invoiceFooter=S.co.invoiceFooter||'';
-        // Attach T&C from company settings (now available since META loaded first)
-        if(!remoteDoc.quoteTC)remoteDoc.quoteTC=S.co.quoteTC||'';
-        // Real view tracking — primary POST is AWAITED so it can never land
-        // AFTER (and overwrite) a signature submission. Without this, on slower
-        // connections the tracking write can complete after the sign write and
-        // wipe out the customer's signature.
-        const isInvoiceDoc=remoteDoc.ref&&remoteDoc.ref.includes('invoice');
-        var trackingDone=Promise.resolve();
-        if(!remoteDoc.signature||isInvoiceDoc){
-          const wasFirst=!remoteDoc.emailOpened&&(remoteDoc.viewCount||0)===0;
-          remoteDoc.viewCount=(remoteDoc.viewCount||0)+1;
-          remoteDoc.emailOpened=true;
-          const table=remoteDoc.ref.includes('invoice')?'invoices':'estimates';
-          const trkHdrs={'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'resolution=merge-duplicates,return=minimal'};
-          // Update the doc row using POST upsert — AWAITED before render so signing
-          // (which happens after render) can never race with this write.
-          trackingDone=fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:trkHdrs,body:JSON.stringify([{ref:remoteDoc.ref,data:remoteDoc}])}).catch(function(){});
-          // Write activity directly to META row using POST upsert — different row,
-          // safe to fire in the background without blocking render.
-          if(wasFirst){
-            fetch(SUPA_URL+'/rest/v1/estimates?select=data&ref=eq._META_',{headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
-              .then(function(r){return r.json();})
-              .then(function(rows){
-                const meta=(rows&&rows[0]&&rows[0].data)?JSON.parse(JSON.stringify(rows[0].data)):{};
-                if(!meta.activity)meta.activity=[];
-                const already=meta.activity.some(function(a){return a.type==='opened'&&a.ref===remoteDoc.ref;});
-                if(!already){
-                  meta.activity.unshift({type:'opened',ref:remoteDoc.ref,name:remoteDoc.clientName,val:'',time:new Date().toISOString(),read:false});
-                  fetch(SUPA_URL+'/rest/v1/estimates',{method:'POST',headers:trkHdrs,body:JSON.stringify([{ref:'_META_',data:meta}])});
-                }
-              }).catch(function(){});
-          }
-          // Opened notification removed — activity feed handles this in-app
-        }
-        trackingDone.then(function(){renderCustomerView(remoteDoc);});
-      } else {
-        document.getElementById('cust-body').innerHTML='<div style="text-align:center;padding:60px 20px;"><div style="font-size:32px;margin-bottom:16px;">❌</div><div style="font-size:16px;color:#555;">Quote not found.<br>Please contact Alexander Pointing Ltd.</div><a href="tel:01613272843" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#276749;color:#fff;border-radius:8px;font-size:15px;text-decoration:none;">📞 Call Us</a></div>';
-      }
-    });
+    const custBody=document.getElementById('cust-body');
+    const notFound='<div style="text-align:center;padding:60px 20px;"><div style="font-size:32px;margin-bottom:16px;">❌</div><div style="font-size:16px;color:#555;">Quote not found.<br>Please contact Alexander Pointing Ltd.</div><a href="tel:01613272843" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#276749;color:#fff;border-radius:8px;font-size:15px;text-decoration:none;">📞 Call Us</a></div>';
+    custBody.innerHTML='<div style="text-align:center;padding:60px 20px;"><div style="font-size:32px;margin-bottom:16px;">⏳</div><div style="font-size:16px;color:#555;">Loading your quote...</div></div>';
+    function prep(d){
+      if(!d.quoteFooter)d.quoteFooter=S.co.quoteFooter||'';
+      if(!d.invoiceFooter)d.invoiceFooter=S.co.invoiceFooter||'';
+      if(!d.quoteTC)d.quoteTC=S.co.quoteTC||'';
+      return d;
+    }
+    fetch(SUPA_URL+'/public/doc?ref='+encodeURIComponent(quoteRef)+'&k='+encodeURIComponent(linkKey))
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(res){
+        if(!res||!res.doc){custBody.innerHTML=notFound;return;}
+        S.co={...DEF_CO,...(res.co||{})};
+        let remoteDoc=prep(res.doc);
+        // Record the view on the server and wait for it, so it can never land after (and overwrite) a signature.
+        return fetch(SUPA_URL+'/public/view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:quoteRef,k:linkKey})})
+          .then(function(r){return r.ok?r.json():null;})
+          .catch(function(){return null;})
+          .then(function(v){
+            if(v&&v.doc)remoteDoc=prep(v.doc);
+            renderCustomerView(remoteDoc);
+          });
+      })
+      .catch(function(){custBody.innerHTML=notFound;});
+    return; // customers never see the staff app or login
   }
   if(!checkAuth()){
     document.getElementById('login-screen').style.display='flex';
     document.getElementById('login-user').focus();
+    checkSetupNeeded();
   }
 })();
 
