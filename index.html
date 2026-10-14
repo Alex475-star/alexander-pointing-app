@@ -3754,6 +3754,8 @@ function buildDesktopHtml(doc){
     +'<div style="margin-top:20px;border-top:1px solid #e0e0e0;padding-top:14px;">'
     +(logosSrc&&logosSrc.length>100?'<img src="'+logosSrc+'" style="width:100%;max-width:100%;object-fit:contain;">':'')
     +'</div>'
+    +((doc.photos&&doc.photos.length>0)?'<div style="margin-top:22px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+      +doc.photos.map(function(ph){return'<img src="'+ph.data+'" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">';}).join('')+'</div>':'')
     +'</body></html>';
 }
 
@@ -4018,9 +4020,6 @@ function renderCustomerView(doc){
     +(doc.expiryDate&&!isInv?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:14px;"><span style="color:#555;">Valid Until</span><span style="color:#333;">'+fdLong(doc.expiryDate)+'</span></div>':'')
     +'</div>'
 
-    // Photos
-    +photosHtml
-
     // Line items
     +'<div style="padding-top:14px;border-top:1px solid #e0e0e0;">'
     +'<div style="font-size:15px;font-weight:700;color:#111;margin-bottom:0px;">Description</div>'
@@ -4059,6 +4058,9 @@ function renderCustomerView(doc){
     +'</div>'
 
     +'</div>'
+
+    // Photos (after the footer, before the terms)
+    +photosHtml
 
     // T&C and Accept
     +(tcHtml||acceptHtml?tcHtml+acceptHtml:'');
