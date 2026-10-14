@@ -3587,10 +3587,14 @@ function clearActivity(){
 
 function rSettings(m){
   const c=S.co;
-  const tabs=[{id:'account',label:'My Account'},{id:'company',label:'My Company'},{id:'bank',label:'Bank Details'},{id:'taxes',label:'Taxes & VAT'},{id:'docs',label:'Doc Settings'},{id:'branding',label:'Signature & Logos'},{id:'alerts',label:'Phone Alerts'},{id:'security',label:'Security'}];
+  const tabs=[{id:'account',label:'My Account'},{id:'company',label:'My Company'},{id:'bank',label:'Bank Details'},{id:'taxes',label:'Taxes & VAT'},{id:'docs',label:'Doc Settings'},{id:'branding',label:'Signature & Logos'},{id:'alerts',label:'Phone Alerts'},{id:'backup',label:'Backup'},{id:'security',label:'Security'}];
   if(S.settab==='alerts'){
     const tabNav0=tabs.map(t=>'<div class="sni '+(S.settab===t.id?'active':'')+'" onclick="S.settab=\''+t.id+'\';rSettings(document.getElementById(\'main-area\'))">'+t.label+'</div>').join('');
     rAlertsTab(m,tabNav0);return;
+  }
+  if(S.settab==='backup'){
+    const tabNavB=tabs.map(t=>'<div class="sni '+(S.settab===t.id?'active':'')+'" onclick="S.settab=\''+t.id+'\';rSettings(document.getElementById(\'main-area\'))">'+t.label+'</div>').join('');
+    rBackupTab(m,tabNavB);return;
   }
   if(S.settab==='security'){
     const tabNav=tabs.map(t=>'<div class="sni '+(S.settab===t.id?'active':'')+'" onclick="S.settab=\''+t.id+'\';rSettings(document.getElementById(\'main-area\'))">'+t.label+'</div>').join('');
@@ -3820,6 +3824,79 @@ async function rAlertsTab(m,tabNav){
    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+(st==='on'?'<button class="bs" onclick="disablePush()">Turn off</button>':'<button class="bg" onclick="enablePush()">Turn on alerts</button>')+'<button class="bs" onclick="testPush()">Send a test</button></div>'
    +'<div id="push-msg" style="font-size:12px;color:#276749;margin-top:10px;min-height:16px;"></div></div>'
    +'<div style="font-size:12px;color:#888;line-height:1.6;margin-top:14px;">To chase a customer, open the quote or invoice and press the Chase button. Nothing is ever sent to a customer without you pressing it.</div>'
+   +'</div></div>';
+}
+// ---- backup (zip) ----
+var _crcTab=null;
+function _crc32(b){if(!_crcTab){_crcTab=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;_crcTab[n]=c>>>0;}}
+  var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=_crcTab[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+async function _deflateRaw(bytes){
+  if(typeof CompressionStream==='undefined')return null;
+  var cs=new CompressionStream('deflate-raw'),w=cs.writable.getWriter();w.write(bytes);w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function _makeZip(files){
+  var enc=new TextEncoder(),parts=[],central=[],off=0,d=new Date();
+  var dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  for(var i=0;i<files.length;i++){
+    var f=files[i],name=enc.encode(f.name),raw=f.data,comp=await _deflateRaw(raw),method=8;
+    if(!comp){comp=raw;method=0;}
+    var crc=_crc32(raw),lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,method,true);lh.setUint16(10,dt,true);lh.setUint16(12,dd,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,comp.length,true);lh.setUint32(22,raw.length,true);lh.setUint16(26,name.length,true);lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),name,comp);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(10,method,true);ch.setUint16(12,dt,true);ch.setUint16(14,dd,true);
+    ch.setUint32(16,crc,true);ch.setUint32(20,comp.length,true);ch.setUint32(24,raw.length,true);ch.setUint16(28,name.length,true);ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),name);
+    off+=30+name.length+comp.length;
+  }
+  var cd=0;central.forEach(function(x){cd+=x.length;});
+  var eo=new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true);eo.setUint16(8,files.length,true);eo.setUint16(10,files.length,true);eo.setUint32(12,cd,true);eo.setUint32(16,off,true);
+  return new Blob(parts.concat(central,[new Uint8Array(eo.buffer)]),{type:'application/zip'});
+}
+async function downloadBackup(){
+  var msg=document.getElementById('bk-msg');var say=function(t,bad){if(msg){msg.textContent=t;msg.style.color=bad?'#b91c1c':'#276749';}};
+  try{
+    say('Preparing…');
+    var co=Object.assign({},S.co);
+    var data={app:'APL Ledger',created:new Date().toISOString(),estimates:S.estimates.concat(_trashE||[]),invoices:S.invoices.concat(_trashI||[]),
+      settings:{clients:S.clients,activity:S.activity,co:co,nextQ:S.nextQ,nextI:S.nextI}};
+    var day=data.created.slice(0,10),name='APL-backup-'+day+'.zip',enc=new TextEncoder();
+    var readme='APL Ledger backup, '+day+'\r\n\r\nbackup.json holds every quote, invoice, client and your company settings (including photos and anything in Recently deleted). Login details are never included. It contains customers\' personal details, so keep it private.\r\nTo restore, send this file to Claude.';
+    var blob=await _makeZip([{name:'backup.json',data:enc.encode(JSON.stringify(data))},{name:'README.txt',data:enc.encode(readme)}]);
+    var mobile=/iPhone|iPad|iPod|Android/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    var file=null;try{file=new File([blob],name,{type:'application/zip'});}catch(e){}
+    if(mobile&&file&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:name});say('Backup ready. Choose "Save to Files" to keep it.');
+        try{localStorage.setItem('apl_last_backup',new Date().toISOString());}catch(e){}return;}
+      catch(e){if(e&&e.name==='AbortError'){say('Cancelled.');return;}}
+    }
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},4000);
+    try{localStorage.setItem('apl_last_backup',new Date().toISOString());}catch(e){}
+    say('Saved as '+name+' ('+(blob.size/1024<1024?Math.round(blob.size/1024)+' KB':(blob.size/1048576).toFixed(1)+' MB')+'). It is in your Downloads folder.');
+  }catch(e){say('Could not make the backup: '+(e&&e.message?e.message:e),true);}
+}
+async function emailBackupNow(){
+  var msg=document.getElementById('bk-msg');var say=function(t,bad){if(msg){msg.textContent=t;msg.style.color=bad?'#b91c1c':'#276749';}};
+  try{say('Sending…');
+    var r=await apiFetch(SUPA_URL+'/backup/email',{method:'POST',headers:{'Content-Type':'application/json',...authHdr()},body:'{}'});var j={};try{j=await r.json();}catch(e){}
+    if(r.ok&&j.ok)say('Sent to mail@ukpointing.com ('+j.estimates+' quotes, '+j.invoices+' invoices). Check your inbox, and your junk folder the first time.');
+    else say(j.message||j.error||'It did not send.',true);
+  }catch(e){say('Could not reach the server.',true);}
+}
+function rBackupTab(m,tabNav){
+  var last='';try{var l=localStorage.getItem('apl_last_backup');if(l)last=new Date(l).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});}catch(e){}
+  m.innerHTML='<div class="topbar"><h1>Settings</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="nav(\'dashboard\')">Close</button></div></div>'
+   +'<div style="display:flex;flex:1;overflow:hidden;"><div class="sn">'+tabNav+'</div><div class="sp">'
+   +'<div style="font-size:14px;font-weight:600;margin-bottom:10px;color:#111;">Backup</div>'
+   +'<div class="sc"><div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:12px;">One zip file with every quote, invoice, client and photo, plus your settings. Your login details are never included. Keep the file private, because it holds your customers\' details. Save each one in a folder such as <b>APL Backups</b>; the date is in the file name, so nothing gets overwritten.</div>'
+   +'<div style="font-size:12px;color:#888;margin-bottom:12px;">Last downloaded on this device: <b>'+(last||'never')+'</b></div>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="bg" onclick="downloadBackup()">Download backup (.zip)</button><button class="bs" onclick="emailBackupNow()">Email me a backup now</button></div>'
+   +'<div id="bk-msg" style="font-size:12px;margin-top:10px;min-height:16px;line-height:1.5;"></div></div>'
+   +'<div style="font-size:12px;color:#888;line-height:1.6;margin-top:14px;">A backup is also emailed to you every Sunday night automatically.</div>'
    +'</div></div>';
 }
 function saveSettings(){
