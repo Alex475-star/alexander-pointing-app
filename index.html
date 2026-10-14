@@ -140,10 +140,10 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .si:focus{outline:none;border-color:#276749;}
 .list-box{background:#fff;border:1px solid #e5e5e0;border-radius:10px;overflow:hidden;margin-bottom:18px;}
 .row-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:1px;}
-.row-del-bg{position:absolute;right:0;top:0;bottom:0;width:80px;background:#c62828;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;border-radius:0 8px 8px 0;}
+.row-del-bg{position:absolute;right:0;top:0;bottom:0;width:90px;background:#c62828;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;border-radius:0 8px 8px 0;cursor:pointer;}
 .row-content{position:relative;background:#fff;transition:transform 0.18s ease;will-change:transform;}
 .row-hover-del{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:#ffebee;border:1px solid #fecdd3;color:#c62828;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;opacity:0;transition:opacity 0.15s;pointer-events:none;}
-.row-content:hover .row-hover-del{opacity:1;pointer-events:auto;}
+@media (hover:hover) and (pointer:fine){.row-content:hover .row-hover-del{opacity:1;pointer-events:auto;}}
 .list-row{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0ed;cursor:pointer;transition:background 0.1s;}
 .list-row:last-child{border-bottom:none;}
 .list-row:hover{background:#f9f9f7;}
@@ -1526,7 +1526,7 @@ function rEst(m){
         <div class="month-row"><span class="month-label">${mo}</span></div>
         <div class="list-box">
           ${items.map(e=>{const vs=viewScore(e);return`<div class="row-wrap">
-            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','est')">🗑️</div>
+            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','est')">Delete</div>
             <div class="row-content">
             <div class="list-row" style="position:relative;" onclick="editE('${e.ref}')">
             <button class="row-hover-del" onclick="event.stopPropagation();deleteDoc('${e.ref}','est')">🗑</button>
@@ -1546,6 +1546,7 @@ function rEst(m){
         </div>
       </div>`).join('')}
   </div>`;
+  setTimeout(initSwipeDelete,100);
   if(S.modal==='ne')showEstModal();
 }
 
@@ -1968,14 +1969,38 @@ function updLI(i,f,v){S.ne.lineItems[i][f]=(f==='rate'||f==='qty')?parseFloat(v)
 function openPhotos(){document.getElementById('photo-input').click();}
 function removePhoto(i){S.ne.photos.splice(i,1);showEstModal();}
 function viewPhoto(src){window.open(src,'_blank');}
-function handlePhotos(input){
-  Array.from(input.files).forEach(f=>{
-    if(f.size>4*1024*1024){toast('Max 4MB per photo','#c62828');return;}
-    const r=new FileReader();
-    r.onload=e=>{if(!S.ne.photos)S.ne.photos=[];if(S.ne.photos.length>=10){toast('Max 10 photos','#c62828');return;}S.ne.photos.push({data:e.target.result,name:f.name});showEstModal();};
-    r.readAsDataURL(f);
-  });
-  input.value='';
+var _PHOTO_BUDGET=1200000;
+function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
+function _compressPhoto(file,maxDim,q0){return new Promise(function(res,rej){
+  var url=URL.createObjectURL(file),im=new Image();
+  im.onload=function(){try{
+    var sc=Math.min(1,maxDim/Math.max(im.naturalWidth,im.naturalHeight));
+    var c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));
+    var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+    var q=q0,d=c.toDataURL('image/jpeg',q);
+    while(d.length>200000&&q>0.4){q-=0.1;d=c.toDataURL('image/jpeg',q);}
+    URL.revokeObjectURL(url);res(d);
+  }catch(e){URL.revokeObjectURL(url);rej(e);}};
+  im.onerror=function(){URL.revokeObjectURL(url);rej(new Error('unreadable image'));};
+  im.src=url;});}
+async function handlePhotos(input){
+  var files=Array.from(input.files||[]);input.value='';
+  if(!files.length)return;
+  if(!S.ne.photos)S.ne.photos=[];
+  toast('Adding photo'+(files.length>1?'s':'')+'...','#276749');
+  var added=0,skipped=0;
+  for(var i=0;i<files.length;i++){
+    if(S.ne.photos.length>=10){toast('Max 10 photos per quote','#c62828');break;}
+    try{
+      var d=await _compressPhoto(files[i],1400,0.75);
+      if(_photoBytes()+d.length>_PHOTO_BUDGET)d=await _compressPhoto(files[i],1000,0.55);
+      if(_photoBytes()+d.length>_PHOTO_BUDGET){skipped++;continue;}
+      S.ne.photos.push({data:d,name:files[i].name});added++;
+    }catch(e){skipped++;}
+  }
+  if(skipped)toast(skipped+' photo'+(skipped>1?'s':'')+' not added (quote photo space is full or the file could not be read)','#c62828');
+  showEstModal();
+
 }
 
 function openNE(){
@@ -2201,7 +2226,7 @@ function rInv(m){
         <div class="month-row"><span class="month-label">${mo}</span><span class="month-total">${fmt(items.reduce((s,e)=>s+tot(e.lineItems),0))}</span></div>
         <div class="list-box">
           ${items.map(e=>`<div class="row-wrap">
-            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','inv')">🗑️</div>
+            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','inv')">Delete</div>
             <div class="row-content">
             <div class="list-row" style="flex-direction:column;align-items:stretch;gap:0;position:relative;" onclick="">
             <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="showPreview('${e.ref}')">
@@ -2299,28 +2324,37 @@ async function deleteDoc(ref,type){
 function initSwipeDelete(){
   document.querySelectorAll('.row-wrap').forEach(function(wrap){
     var content=wrap.querySelector('.row-content');
-    if(!content)return;
-    var startX,startY,swiping=false;
+    if(!content||content.dataset.swipeInit)return;
+    content.dataset.swipeInit='1';
+    var startX,startY,swiping=false,moved=false;
+    function closeRow(){content.style.transform='';delete content.dataset.open;}
     content.addEventListener('touchstart',function(e){
-      startX=e.touches[0].clientX;startY=e.touches[0].clientY;swiping=true;
+      startX=e.touches[0].clientX;startY=e.touches[0].clientY;swiping=true;moved=false;
     },{passive:true});
     content.addEventListener('touchmove',function(e){
       if(!swiping)return;
-      var dx=e.touches[0].clientX-startX;
-      var dy=e.touches[0].clientY-startY;
-      if(Math.abs(dy)>Math.abs(dx)+5){swiping=false;content.style.transform='';return;}
-      if(dx<0)content.style.transform='translateX('+Math.max(dx,-80)+'px)';
+      var dx=e.touches[0].clientX-startX,dy=e.touches[0].clientY-startY;
+      if(Math.abs(dy)>Math.abs(dx)+5){swiping=false;return;}
+      if(Math.abs(dx)>8)moved=true;
+      var base=content.dataset.open?-90:0;
+      var t=Math.min(0,Math.max(base+dx,-90));
+      content.style.transform='translateX('+t+'px)';
     },{passive:true});
     content.addEventListener('touchend',function(e){
       if(!swiping)return;swiping=false;
       var dx=e.changedTouches[0].clientX-startX;
-      if(dx<-60){
-        content.style.transform='translateX(-80px)';
+      if(moved&&dx<-40&&!content.dataset.open){
+        content.style.transform='translateX(-90px)';content.dataset.open='1';
         document.addEventListener('touchstart',function close(ev){
-          if(!wrap.contains(ev.target)){content.style.transform='';document.removeEventListener('touchstart',close);}
-        });
-      }else{content.style.transform='';}
+          if(!wrap.contains(ev.target)||ev.target.closest('.row-content')){closeRow();document.removeEventListener('touchstart',close);}
+        },{passive:true});
+      }else if(moved&&content.dataset.open&&dx>20){closeRow();}
+      else if(moved&&!content.dataset.open){closeRow();}
     });
+    // a tap on an opened row just closes it; a tap on a normal row opens the quote
+    content.addEventListener('click',function(e){
+      if(content.dataset.open){e.stopPropagation();e.preventDefault();closeRow();}
+    },true);
   });
 }
 
@@ -2639,7 +2673,22 @@ function openDisplayOptions(){
   document.body.appendChild(ov);
 }
 
-function printDoc(){window.print();}
+function printDoc(){
+  var doc=S.invoices.find(function(i){return i.ref===S.previewRef;})||S.estimates.find(function(e){return e.ref===S.previewRef;});
+  if(!doc){window.print();return;}
+  var isI=doc.ref.includes('invoice'),sub=tot(doc.lineItems);
+  var grand=isI?sub+(doc.vat?sub*0.2:0):calcGrandTotal(doc);
+  var o=S.displayOpts||{};
+  var body=renderDesktopPreview(doc,S.co,grand,isI,o.qty!==false,o.rate!==false,o.total!==false);
+  var old=document.getElementById('print-frame');if(old)old.remove();
+  var f=document.createElement('iframe');f.id='print-frame';
+  f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  document.body.appendChild(f);
+  var d=f.contentWindow.document;d.open();
+  d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+(isI?'Invoice':'Quote')+' '+doc.ref+'</title><style>@page{margin:12mm}*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Helvetica Neue,Arial,sans-serif;color:#222}body>div{max-width:none!important;padding:0!important;min-height:0!important}tr{page-break-inside:avoid}thead{display:table-header-group}img{max-width:100%}</style></head><body>'+body+'</body></html>');
+  d.close();
+  setTimeout(function(){try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.print();}setTimeout(function(){var x=document.getElementById('print-frame');if(x)x.remove();},60000);},600);
+}
 
 function shareBySMS(ref){openShareModal(ref);}
 
