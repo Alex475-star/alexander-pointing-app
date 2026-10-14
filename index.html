@@ -2217,7 +2217,10 @@ function saveNewClientForm(){
   render();
 }
 
-function toggleCS(){S.showCS=!S.showCS;S.cs='';showEstModal();}
+function toggleCS(){
+  if(!(S.ne&&S.ne.clientName)){S.showCS=false;S.cs='';openNewClientForm();return;}
+  S.showCS=!S.showCS;S.cs='';showEstModal();
+}
 function pickClient(enc){
   const c=JSON.parse(decodeURIComponent(enc));
   Object.assign(S.ne,{clientName:c.name,address:c.address||'',serviceAddress:c.serviceAddress||c.address||'',phone:c.phone||'',mobile:c.mobile||'',email:c.email||''});
