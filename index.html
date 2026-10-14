@@ -614,6 +614,7 @@ async function ensureShareKey(doc){
   const table=doc.ref.includes('invoice')?'invoices':'estimates';
   const r=await apiFetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:doc.ref,data:doc})});
   if(!r.ok)throw new Error('could not save link key ('+r.status+')');
+  try{_register(table,doc);}catch(e){}
   return doc.shareKey;
 }
 
@@ -983,24 +984,14 @@ async function loadFromSupabase(){
         if(Array.isArray(m.customItems))S.customItems=m.customItems;
       }
       const remoteEsts=estRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
-      if(remoteEsts.length>0){
-        const remoteRefs=new Set(remoteEsts.map(e=>e.ref));
-        S.estimates=[...remoteEsts,...(S.estimates||[]).filter(e=>!remoteRefs.has(e.ref)&&e.ref!=='_META_')];
-      } else {
-        S.estimates=[];
-        // No data and no meta row = full clear on another device
-        if(!metaRow){S.clients=[];S.activity=[];}
-      }
+      S.estimates=mergeDocs('estimates',S.estimates,remoteEsts);
+      _srvMeta=JSON.stringify(_metaObj());
+      if(!remoteEsts.length&&!metaRow){S.clients=[];S.activity=[];}
     }
 
     if(invRows!==null){
       const remoteInvs=invRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
-      if(remoteInvs.length>0){
-        const remoteRefs=new Set(remoteInvs.map(i=>i.ref));
-        S.invoices=[...remoteInvs,...(S.invoices||[]).filter(i=>!remoteRefs.has(i.ref))];
-      } else {
-        S.invoices=[];
-      }
+      S.invoices=mergeDocs('invoices',S.invoices,remoteInvs);
     }
 
     // Strip any stray _META_ entries
@@ -1029,39 +1020,112 @@ async function loadFromSupabase(){
       }
     });
     S.activity=S.activity.slice(0,200);
+    if(estRows!==null&&invRows!==null)_synced=true;
     saveData();
     safeRender();
   }catch(e){console.log('Supabase load error:',e);}
 }
 
 
-async function syncToSupabase(){
-  // Push all local data to Supabase
+
+// ---- sync v2 -----------------------------------------------------------------
+var _srv={},_known=null,_synced=false,_pushing=false,_again=false,_srvMeta='',_pushedAt={},_retry=null;
+(function(){try{var k=JSON.parse(localStorage.getItem('apl_known')||'null');_known=k?new Set(k):null;}catch(e){_known=null;}})();
+function _saveKnown(){try{localStorage.setItem('apl_known',JSON.stringify(Array.from(_known||[])));}catch(e){}}
+function _forget(key){delete _srv[key];if(_known)_known.delete(key);_saveKnown();}
+function _register(kind,doc){var key=kind+':'+doc.ref;_srv[key]=JSON.stringify(doc);if(!_known)_known=new Set();_known.add(key);_pushedAt[key]=Date.now();_saveKnown();}
+function _stable(doc){
+  var V={viewCount:1,openCount:1,emailOpened:1,openedAt:1,shareKey:1};
+  function st(x,top){
+    if(Array.isArray(x))return '['+x.map(function(y){return st(y,false);}).join(',')+']';
+    if(x&&typeof x==='object')return '{'+Object.keys(x).sort().filter(function(k){return !(top&&V[k]);}).map(function(k){return JSON.stringify(k)+':'+st(x[k],false);}).join(',')+'}';
+    return JSON.stringify(x===undefined?null:x);
+  }
+  return st(doc,true);
+}
+// Merge the server's list with this device's list. The server is the source of truth:
+//  - a document on both: take the server copy (unless I have an unsaved edit of my own)
+//  - on the server only: add it
+//  - on this device only: keep it only if it is brand new (never reached the server); if the server
+//    used to have it, it was deleted on another device, so drop it here too
+function mergeDocs(kind,local,remote){
+  var firstRun=(_known===null);if(firstRun)_known=new Set();
+  var rmap={};remote.forEach(function(d){rmap[d.ref]=d;});
+  var out=remote.slice(),keep={};
+  (local||[]).forEach(function(d){
+    if(!d||!d.ref||d.ref==='_META_')return;
+    var key=kind+':'+d.ref;
+    if(rmap[d.ref]){
+      if(_srv[key]!==undefined&&JSON.stringify(d)!==_srv[key]){out[out.indexOf(rmap[d.ref])]=d;}
+    }else if((!firstRun&&!_known.has(key))||(Date.now()-(_pushedAt[key]||0)<120000)){out.push(d);}
+  });
+  remote.forEach(function(d){var key=kind+':'+d.ref;_srv[key]=JSON.stringify(d);_known.add(key);});
+  out.forEach(function(d){keep[kind+':'+d.ref]=1;});
+  Array.from(_known).forEach(function(k){if(k.indexOf(kind+':')===0&&!keep[k])_known.delete(k);});
+  _saveKnown();
+  return out;
+}
+async function _fetchDoc(kind,ref){
+  try{var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind+'?ref=eq.'+encodeURIComponent(ref)+'&select=data',{headers:authHdr()});
+    if(!r.ok)return undefined;var j=await r.json();return j.length?j[0].data:null;}catch(e){return undefined;}
+}
+// Before saving an existing quote/invoice: has anyone else changed (or deleted) it since I opened it?
+async function _conflictOK(kind,ne,label){
+  var srv=await _fetchDoc(kind,ne.ref);
+  if(srv===undefined)return true;
+  if(srv===null){
+    if(_known&&_known.has(kind+':'+ne.ref)){
+      return confirm('This '+label+' was deleted on another device.\n\nOK = save it again anyway.\nCancel = leave it deleted.');
+    }
+    return true;
+  }
+  if(S.neBase&&_stable(srv)!==S.neBase){
+    var go=confirm('This '+label+' was changed on another device (or by your customer) after you opened it.\n\nOK = save my version anyway (this replaces those changes).\nCancel = keep the newer version and drop my edits.');
+    if(!go){closeModal();loadFromSupabase();return false;}
+  }
+  ['viewCount','openCount','emailOpened','openedAt'].forEach(function(k){if(srv[k]!==undefined)ne[k]=srv[k];});
+  if(srv.shareKey&&!ne.shareKey)ne.shareKey=srv.shareKey;
+  return true;
+}
+// A new quote must not reuse a number another device has already used
+async function _reserveRef(kind,ne){
+  var pre=kind==='estimates'?'aplquote':'aplinvoice';
   try{
-    const headers = {
-      'Content-Type':'application/json',
-      ...authHdr(),
-      'Prefer': 'resolution=merge-duplicates,return=minimal'
-    };
-    if(S.estimates&&S.estimates.length>0){
-      await apiFetch(SUPA_URL+'/rest/v1/estimates', {
-        method:'POST', headers,
-        body: JSON.stringify(S.estimates.map(e=>({ref:e.ref,data:e})))
-      });
-    }
-    if(S.invoices&&S.invoices.length>0){
-      await apiFetch(SUPA_URL+'/rest/v1/invoices', {
-        method:'POST', headers,
-        body: JSON.stringify(S.invoices.map(i=>({ref:i.ref,data:i})))
-      });
-    }
-    // Save clients, activity, counters and settings as a meta row
-    const meta={clients:S.clients||[],activity:S.activity||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};
-    await apiFetch(SUPA_URL+'/rest/v1/estimates', {
-      method:'POST', headers,
-      body: JSON.stringify([{ref:'_META_',data:meta}])
-    });
-  }catch(e){console.log('Sync error:',e);}
+    var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind+'?select=ref&limit=1000',{headers:authHdr()});
+    if(r.ok){var j=await r.json(),max=0;
+      j.forEach(function(x){var n=parseInt(String(x.ref).replace(/\D/g,''),10);if(n>max)max=n;});
+      var mine=parseInt(ne.ref.replace(/\D/g,''),10);
+      if(mine<=max)ne.ref=pre+(max+1);}
+  }catch(e){}
+  var n2=parseInt(ne.ref.replace(/\D/g,''),10);
+  if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n2+1);else S.nextI=Math.max(S.nextI||0,n2+1);
+}
+function _metaObj(){return {clients:S.clients||[],activity:S.activity||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};}
+async function _doPush(){
+  if(!_synced)return;
+  var headers={'Content-Type':'application/json',...authHdr(),'Prefer':'resolution=merge-duplicates,return=minimal'};
+  var failed=false,lists=[['estimates',S.estimates],['invoices',S.invoices]];
+  for(var li=0;li<lists.length;li++){
+    var kind=lists[li][0],ch=(lists[li][1]||[]).filter(function(d){return d&&d.ref&&d.ref!=='_META_'&&_srv[kind+':'+d.ref]!==JSON.stringify(d);});
+    if(!ch.length)continue;
+    try{
+      var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:headers,body:JSON.stringify(ch.map(function(d){return {ref:d.ref,data:d};}))});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      ch.forEach(function(d){_register(kind,d);});
+    }catch(e){failed=true;console.log('Sync error:',e);}
+  }
+  var ms=JSON.stringify(_metaObj());
+  if(ms!==_srvMeta){
+    try{var r2=await apiFetch(SUPA_URL+'/rest/v1/estimates',{method:'POST',headers:headers,body:JSON.stringify([{ref:'_META_',data:_metaObj()}])});
+      if(!r2.ok)throw new Error('HTTP '+r2.status);_srvMeta=ms;}catch(e){failed=true;console.log('Sync error (settings):',e);}
+  }
+  if(failed){try{toast('Could not save to the server - will retry','#c62828');}catch(e){}if(!_retry)_retry=setTimeout(function(){_retry=null;syncToSupabase();},20000);}
+}
+async function syncToSupabase(){
+  if(!_synced)return;
+  if(_pushing){_again=true;return;}
+  _pushing=true;
+  try{do{_again=false;await _doPush();}while(_again);}finally{_pushing=false;}
 }
 
 function loadData(){
@@ -1089,6 +1153,7 @@ function loadData(){
   if(!window._pollInterval){
     window._pollInterval=setInterval(async function(){
       if(!sessionStorage.getItem('apl_auth'))return;
+      if(document.visibilityState!=='visible')return;
       try{
         const hdrs={...authHdr()};
         const [er,ir]=await Promise.all([
@@ -1100,8 +1165,8 @@ function loadData(){
         const prevApproved=new Set((S.estimates||[]).filter(e=>e.status==='APPROVED').map(e=>e.ref));
         const prevEstOpened=new Set((S.estimates||[]).filter(e=>e.emailOpened).map(e=>e.ref));
         const prevInvOpened=new Set((S.invoices||[]).filter(i=>i.emailOpened).map(i=>i.ref));
-        if(remEsts.length>0){const rr=new Set(remEsts.map(e=>e.ref));S.estimates=[...remEsts,...(S.estimates||[]).filter(e=>!rr.has(e.ref))];}
-        if(remInvs.length>0){const rr=new Set(remInvs.map(i=>i.ref));S.invoices=[...remInvs,...(S.invoices||[]).filter(i=>!rr.has(i.ref))];}
+        if(_synced&&er.ok)S.estimates=mergeDocs('estimates',S.estimates,remEsts);
+        if(_synced&&ir.ok)S.invoices=mergeDocs('invoices',S.invoices,remInvs);
         let changed=false;
         (S.estimates||[]).forEach(function(e){
           if(e.emailOpened&&!prevEstOpened.has(e.ref)){addAct('opened',e.ref,e.clientName);richToast(e.clientName,fmt(calcGrandTotal(e)),'opened the quote','#1565c0');updateBadge();changed=true;}
@@ -1752,11 +1817,11 @@ function showEstModal(){
 }
 let sigDrawing=false,sigCtx=null,sigLast={x:0,y:0};
 
-function previewBeforeSend(){
+async function previewBeforeSend(){
   const ne=S.ne;
   if(!ne.clientName){alert('Please add a client first.');return;}
   // Save first, then go to internal preview
-  saveEst();
+  if(!(await saveEst()))return;
   clearModals();
   S.previewRef=ne.ref||S.estimates[0]?.ref;
   S.previewMode='desktop';
@@ -1969,7 +2034,7 @@ function updLI(i,f,v){S.ne.lineItems[i][f]=(f==='rate'||f==='qty')?parseFloat(v)
 function openPhotos(){document.getElementById('photo-input').click();}
 function removePhoto(i){S.ne.photos.splice(i,1);showEstModal();}
 function viewPhoto(src){window.open(src,'_blank');}
-var _PHOTO_BUDGET=1200000;
+var _PHOTO_BUDGET=1500000;
 function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
 function _compressPhoto(file,maxDim,q0){return new Promise(function(res,rej){
   var url=URL.createObjectURL(file),im=new Image();
@@ -2019,6 +2084,7 @@ function openNE(){
 }
 function editE(ref){
   const e=S.estimates.find(x=>x.ref===ref);if(!e)return;
+  S.neBase=_stable(e);
   S.ne=JSON.parse(JSON.stringify(e));S.ne.isNew=false;
   if(!S.ne.photos)S.ne.photos=[];
   S.picker=false;S.showCS=false;S.modalTab='details';
@@ -2028,6 +2094,7 @@ function editE(ref){
 }
 function editI(ref){
   const inv=S.invoices.find(x=>x.ref===ref);if(!inv)return;
+  S.neBase=_stable(inv);
   S.ne=JSON.parse(JSON.stringify(inv));S.ne.isNew=false;
   if(!S.ne.photos)S.ne.photos=[];
   if(!S.ne.dateInput)S.ne.dateInput=S.ne.date?S.ne.date.substring(0,10):new Date().toISOString().substring(0,10);
@@ -2036,21 +2103,28 @@ function editI(ref){
   render();
   showEstModal();
 }
-function saveInv(){
+async function saveInv(){
   const ne=S.ne;
   ne.date=ne.dateInput||ne.date;
   ne.invoiceFooter=S.co.invoiceFooter||ne.invoiceFooter||'';
   const i=S.invoices.findIndex(x=>x.ref===ne.ref);
-  if(i>=0)S.invoices[i]=ne;
-  saveData();closeModal();
+  if(i>=0){if(!(await _conflictOK('invoices',ne,'invoice')))return false;S.invoices[i]=ne;}
+  saveData();closeModal();return true;
 }
-function saveEst(){
-  const ne=S.ne;if(!ne.clientName){alert('Please add a client first.');return;}
+async function saveEst(){
+  const ne=S.ne;if(!ne.clientName){alert('Please add a client first.');return false;}
   ne.date=ne.dateInput;
   ne.quoteFooter=S.co.quoteFooter||ne.quoteFooter||'';
-  if(ne.isNew){S.estimates.unshift(ne);S.nextQ++;}
-  else{const i=S.estimates.findIndex(e=>e.ref===ne.ref);if(i>=0)S.estimates[i]=ne;}
-  saveData();closeModal();
+  if(ne.isNew){
+    await _reserveRef('estimates',ne);
+    ne.isNew=false;
+    S.estimates.unshift(ne);
+  }else{
+    if(!(await _conflictOK('estimates',ne,'quote')))return false;
+    const i=S.estimates.findIndex(e=>e.ref===ne.ref);if(i>=0)S.estimates[i]=ne;else S.estimates.unshift(ne);
+  }
+  S.neBase=_stable(ne);
+  saveData();closeModal();return true;
 }
 function closeModal(){S.modal=null;S.picker=false;S.showCS=false;S.modalTab='details';clearModals();render();}
 
@@ -2313,10 +2387,10 @@ async function deleteDoc(ref,type){
   if(!confirm('Delete this '+label+'? This cannot be undone.'))return;
   if(type==='inv'){
     S.invoices=S.invoices.filter(i=>i.ref!==ref);
-    try{const h={...authHdr()};await apiFetch(SUPA_URL+'/rest/v1/invoices?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
+    try{const h={...authHdr()};const dr=await apiFetch(SUPA_URL+'/rest/v1/invoices?ref=eq.'+ref,{method:'DELETE',headers:h});if(dr.ok)_forget('invoices:'+ref);}catch(e){}
   }else{
     S.estimates=S.estimates.filter(e=>e.ref!==ref);
-    try{const h={...authHdr()};await apiFetch(SUPA_URL+'/rest/v1/estimates?ref=eq.'+ref,{method:'DELETE',headers:h});}catch(e){}
+    try{const h={...authHdr()};const dr=await apiFetch(SUPA_URL+'/rest/v1/estimates?ref=eq.'+ref,{method:'DELETE',headers:h});if(dr.ok)_forget('estimates:'+ref);}catch(e){}
   }
   saveData();render();toast(label.charAt(0).toUpperCase()+label.slice(1)+' deleted');
 }
