@@ -357,6 +357,12 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .act-page-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid #f0f0ed;}
 .act-page-item.unread-bg{background:#f0faf4;}
 .act-page-item:last-child{border-bottom:none;}
+.act-swipe{position:relative;overflow:hidden;}
+.act-del{position:absolute;right:0;top:0;bottom:0;width:84px;background:#c62828;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;cursor:pointer;}
+.act-row{position:relative;background:#fff;transition:transform .2s;}
+.act-swipe.open .act-row{transform:translateX(-84px);}
+.act-x{display:none;margin-left:auto;background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;padding:0 4px;align-self:center;}
+@media (hover:hover) and (pointer:fine){.act-row:hover .act-x{display:block;}.act-x:hover{color:#c62828;}}
 .act-page-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
 .day-label{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;padding:8px 0 6px;}
 .bar-chart{display:flex;align-items:flex-end;gap:6px;height:90px;}
@@ -1000,7 +1006,7 @@ let S={view:'dashboard',stab:'PENDING',itab:'ACTIVE',settab:'company',estimates:
 
 // Storage — saves to localStorage AND syncs to Supabase
 const SKEY='apl_v6_data';
-function saveLocal(){try{localStorage.setItem(SKEY,JSON.stringify({estimates:S.estimates,invoices:S.invoices,clients:S.clients,activity:S.activity,nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[],view:S.view}));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(SKEY,JSON.stringify({estimates:S.estimates,invoices:S.invoices,clients:S.clients,activity:S.activity,actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[],view:S.view}));}catch(e){}}
 
 async function saveData(){
   saveLocal();
@@ -1046,6 +1052,7 @@ async function loadFromSupabase(){
       if(metaRow&&metaRow.data){
         const m=metaRow.data;
         if(Array.isArray(m.clients))S.clients=m.clients;
+        if(Array.isArray(m.actGone))S.actGone=Array.from(new Set((S.actGone||[]).concat(m.actGone)));
         if(Array.isArray(m.activity)){
         // Merge: keep local entries not in remote (prevents poll race condition)
         const remoteIds=new Set(m.activity.map(a=>a.time+'_'+a.ref));
@@ -1078,21 +1085,21 @@ async function loadFromSupabase(){
     // Rebuild activity from current state — ensures activity is accurate on any device
     const actRefs=new Set((S.activity||[]).map(a=>a.type+'_'+a.ref));
     (S.estimates||[]).forEach(function(e){
-      if(e.emailOpened&&!actRefs.has('opened_'+e.ref)){
+      if(e.emailOpened&&!actRefs.has('opened_'+e.ref)&&!_actIsGone('opened',e.ref)){
         S.activity.unshift({type:'opened',ref:e.ref,name:e.clientName,val:fmt(calcGrandTotal(e)),time:e.openedAt||e.date,read:true});
         actRefs.add('opened_'+e.ref);
       }
-      if(e.status==='APPROVED'&&!actRefs.has('signed_'+e.ref)){
+      if(e.status==='APPROVED'&&!actRefs.has('signed_'+e.ref)&&!_actIsGone('signed',e.ref)){
         S.activity.unshift({type:'signed',ref:e.ref,name:e.clientName,val:fmt(calcGrandTotal(e)),time:e.signedAt||e.date,read:true});
         actRefs.add('signed_'+e.ref);
       }
     });
     (S.invoices||[]).forEach(function(i){
-      if(i.emailOpened&&!actRefs.has('opened_'+i.ref)){
+      if(i.emailOpened&&!actRefs.has('opened_'+i.ref)&&!_actIsGone('opened',i.ref)){
         S.activity.unshift({type:'opened',ref:i.ref,name:i.clientName,val:fmt(calcGrandTotal(i)),time:i.openedAt||i.date,read:true});
         actRefs.add('opened_'+i.ref);
       }
-      if(i.status==='PAID'&&!actRefs.has('paid_'+i.ref)){
+      if(i.status==='PAID'&&!actRefs.has('paid_'+i.ref)&&!_actIsGone('paid',i.ref)){
         S.activity.unshift({type:'paid',ref:i.ref,name:i.clientName,val:fmt(calcGrandTotal(i)),time:i.paidAt||i.date,read:true});
         actRefs.add('paid_'+i.ref);
       }
@@ -1179,7 +1186,7 @@ async function _reserveRef(kind,ne){
   var n2=parseInt(ne.ref.replace(/\D/g,''),10);
   if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n2+1);else S.nextI=Math.max(S.nextI||0,n2+1);
 }
-function _metaObj(){return {clients:S.clients||[],activity:S.activity||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};}
+function _metaObj(){return {clients:S.clients||[],activity:S.activity||[],actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};}
 async function _doPush(){
   if(!_synced)return;
   var headers={'Content-Type':'application/json',...authHdr(),'Prefer':'resolution=merge-duplicates,return=minimal'};
@@ -1252,8 +1259,8 @@ function loadData(){
         if(_synced&&ir.ok)S.invoices=mergeDocs('invoices',S.invoices,remInvs);
         let changed=false;
         (S.estimates||[]).forEach(function(e){
-          if(e.emailOpened&&!prevEstOpened.has(e.ref)){addAct('opened',e.ref,e.clientName);richToast(e.clientName,fmt(calcGrandTotal(e)),'opened the quote','#1565c0');updateBadge();changed=true;}
-          if(e.status==='APPROVED'&&!prevApproved.has(e.ref)){addAct('signed',e.ref,e.clientName);richToast(e.clientName,fmt(calcGrandTotal(e)),'signed and accepted the quote','#276749');updateBadge();changed=true;}
+          if(e.emailOpened&&!prevEstOpened.has(e.ref)){if(!_actSkip('opened',e.ref))addAct('opened',e.ref,e.clientName);richToast(e.clientName,fmt(calcGrandTotal(e)),'opened the quote','#1565c0');updateBadge();changed=true;}
+          if(e.status==='APPROVED'&&!prevApproved.has(e.ref)){if(!_actSkip('signed',e.ref))addAct('signed',e.ref,e.clientName);richToast(e.clientName,fmt(calcGrandTotal(e)),'signed and accepted the quote','#276749');updateBadge();changed=true;}
         });
         (S.invoices||[]).forEach(function(i){
           if(i.emailOpened&&!prevInvOpened.has(i.ref)){addAct('opened',i.ref,i.clientName);richToast(i.clientName,fmt(calcGrandTotal(i)),'opened the invoice','#1565c0');updateBadge();changed=true;}
@@ -1261,10 +1268,10 @@ function loadData(){
         // Rebuild invoice activity (same as loadFromSupabase)
         const pollActRefs=new Set((S.activity||[]).map(a=>a.type+'_'+a.ref));
         (S.invoices||[]).forEach(function(i){
-          if(i.emailOpened&&!pollActRefs.has('opened_'+i.ref)){
+          if(i.emailOpened&&!pollActRefs.has('opened_'+i.ref)&&!_actIsGone('opened',i.ref)){
             addAct('opened',i.ref,i.clientName);updateBadge();changed=true;
           }
-          if(i.status==='PAID'&&!pollActRefs.has('paid_'+i.ref)){
+          if(i.status==='PAID'&&!pollActRefs.has('paid_'+i.ref)&&!_actIsGone('paid',i.ref)){
             addAct('paid',i.ref,i.clientName);updateBadge();changed=true;
           }
         });
@@ -1276,8 +1283,52 @@ function loadData(){
   }
 }
 
+function _actKey(a){return a.type+'_'+a.ref+'_'+a.time;}
+function _actIsGone(type,ref){return (S.actGone||[]).indexOf(type+'_'+ref)>=0;}
+function _actHas(type,ref){return (S.activity||[]).some(function(a){return a.type===type&&a.ref===ref;});}
+function _actSkip(type,ref){return _actHas(type,ref)||_actIsGone(type,ref);}
+function delAct(k){
+  try{
+    var a=(S.activity||[]).find(function(x){return _actKey(x)===k;});
+    if(!a)return;
+    S.actGone=S.actGone||[];
+    S.actGone.push(k);
+    if(a.type==='opened'||a.type==='signed'||a.type==='paid')S.actGone.push(a.type+'_'+a.ref);
+    S.actGone=Array.from(new Set(S.actGone)).slice(-500);
+    S.activity=S.activity.filter(function(x){return _actKey(x)!==k;});
+    updateBadge();saveData();render();
+  }catch(e){console.log('delAct',e);}
+}
+(function(){
+  var sx=0,sy=0,dx=0,dy=0,sw=null;
+  document.addEventListener('touchstart',function(e){
+    var t=e.target;
+    if(t.closest&&t.closest('.act-del'))return;
+    var r=t.closest?t.closest('.act-row'):null;
+    document.querySelectorAll('.act-swipe.open').forEach(function(x){if(!r||x!==r.parentNode)x.classList.remove('open');});
+    if(!r){sw=null;return;}
+    sw=r.parentNode;sx=e.touches[0].clientX;sy=e.touches[0].clientY;dx=0;dy=0;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){if(!sw)return;dx=e.touches[0].clientX-sx;dy=e.touches[0].clientY-sy;},{passive:true});
+  document.addEventListener('touchend',function(){
+    if(!sw)return;
+    if(Math.abs(dx)>Math.abs(dy)){if(dx<-50)sw.classList.add('open');else if(dx>30)sw.classList.remove('open');}
+    sw=null;
+  },{passive:true});
+})();
 function _fixActTimes(){
   try{
+    var gone=S.actGone||[],seen={};
+    S.activity=(S.activity||[]).filter(function(a){
+      if(gone.indexOf(_actKey(a))>=0)return false;
+      if(a.type==='opened'||a.type==='signed'||a.type==='paid'){
+        var k=a.type+'_'+a.ref;
+        if(gone.indexOf(k)>=0)return false;
+        if(seen[k])return false;
+        seen[k]=1;
+      }
+      return true;
+    });
     var m={};
     (S.estimates||[]).concat(S.invoices||[]).forEach(function(d){if(d&&d.ref)m[d.ref]=d;});
     (S.activity||[]).forEach(function(a){
@@ -1618,13 +1669,14 @@ function rDash(m){
           <span onclick="nav('activity')" style="font-size:12px;color:#276749;font-weight:600;cursor:pointer;">View all →</span>
         </div>
         ${recentAct.length===0?'<div style="font-size:13px;color:#888;text-align:center;padding:20px 0;">No activity yet.</div>':''}
-        ${recentAct.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0ed;">
+        ${recentAct.map(a=>`<div class="act-swipe"><div class="act-del" data-k="${_actKey(a)}" onclick="delAct(this.dataset.k)">Delete</div><div class="act-row" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0ed;">
           <div style="width:34px;height:34px;border-radius:50%;background:${actBg(a.type)};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${actEmoji(a.type)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:12px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${actText(a)}</div>
             <div style="font-size:11px;color:#888;margin-top:1px;">${a.time?new Date(a.time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):''}</div>
           </div>
-        </div>`).join('')}
+          <button class="act-x" title="Delete" data-k="${_actKey(a)}" onclick="delAct(this.dataset.k)">✕</button>
+        </div></div>`).join('')}
       </div>
 
     </div>
@@ -1681,7 +1733,7 @@ function rActivity(m){
     ${Object.entries(grouped).map(([label,items])=>`
       <div class="day-label">${label}</div>
       <div class="list-box" style="margin-bottom:14px;">
-        ${items.map(a=>`<div class="act-page-item ${!a.read?'unread-bg':''}">
+        ${items.map(a=>`<div class="act-swipe"><div class="act-del" data-k="${_actKey(a)}" onclick="delAct(this.dataset.k)">Delete</div><div class="act-page-item act-row ${!a.read?'unread-bg':''}">
           <div class="act-page-icon" style="background:${actBg(a.type)};font-size:18px;">${actEmoji(a.type)}</div>
           <div style="flex:1;">
             <div style="font-size:13px;color:#111;line-height:1.4;">${actText(a)}</div>
@@ -1691,7 +1743,8 @@ function rActivity(m){
             </div>
           </div>
           ${!a.read?'<div class="unread-dot"></div>':''}
-        </div>`).join('')}
+          <button class="act-x" title="Delete" data-k="${_actKey(a)}" onclick="delAct(this.dataset.k)">✕</button>
+        </div></div>`).join('')}
       </div>`).join('')}
   </div>`;
 }
