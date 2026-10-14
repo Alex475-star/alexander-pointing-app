@@ -3349,7 +3349,7 @@ function rClients(m){
       Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).map(([l,items])=>`
         <div id="client-letter-${l}" style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;padding:6px 0 4px;">${l}</div>
         <div class="list-box" style="margin-bottom:10px;">
-          ${items.map(c=>`<div class="list-row">
+          ${items.map(c=>`<div class="act-swipe"><div class="act-del" data-i="${(S.clients||[]).indexOf(c)}" onclick="delClient(+this.dataset.i)">Delete</div><div class="list-row act-row">
             <div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#276749;flex-shrink:0;">${(c.name||'?')[0].toUpperCase()}</div>
             <div style="flex:1;min-width:0;">
               <div class="list-name">${c.name}</div>
@@ -3358,7 +3358,8 @@ function rClients(m){
             <div style="display:flex;gap:6px;">
               <button class="bs" style="font-size:12px;padding:5px 10px;" onclick="quickEstimate('${encodeURIComponent(c.name)}')">Quote</button>
             </div>
-          </div>`).join('')}
+            <button class="act-x" title="Delete client" data-i="${(S.clients||[]).indexOf(c)}" onclick="delClient(+this.dataset.i)">✕</button>
+          </div></div>`).join('')}
         </div>`).join('')}
   </div>
   <div style="position:fixed;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:1px;z-index:40;background:rgba(255,255,255,0.9);border-radius:10px;padding:4px 2px;">
@@ -3366,6 +3367,15 @@ function rClients(m){
   </div>`;
 }
 
+function delClient(i){
+  try{
+    var c=(S.clients||[])[i];if(!c)return;
+    if(!confirm('Delete '+(c.name||'this client')+' from your clients?\n\nTheir quotes and invoices are not deleted.'))return;
+    S.clients.splice(i,1);
+    saveData();render();
+    try{toast('Client deleted');}catch(e){}
+  }catch(e){console.log('delClient',e);}
+}
 function jumpToLetter(l){
   const el=document.getElementById('client-letter-'+l);
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
