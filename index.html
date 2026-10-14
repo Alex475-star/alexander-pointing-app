@@ -1560,7 +1560,7 @@ function showEstModal(){
   const dt=S.modalTab==='details',pt=S.modalTab==='photos',prt=S.modalTab==='private';
 
   const ov=document.createElement('div');ov.className='modal-overlay';
-  ov.onclick=e=>{if(e.target===ov)closeModal();};
+  // backdrop taps no longer close the quote editor; use Cancel / Save
   ov.innerHTML=`<div class="modal">
     <div class="modal-top">
       <h2>Estimate #${ne.ref}</h2>
@@ -1834,7 +1834,7 @@ function openNewClientForm(){
   const name=S.cs||'';
   clearModals();
   const ov=document.createElement('div');ov.className='modal-overlay';
-  ov.onclick=e=>{if(e.target===ov){S.modal='ne';render();}};
+  // backdrop taps no longer close the new-client form; use Back / Done
   ov.innerHTML=`<div class="modal" style="max-width:500px;">
     <div class="modal-top">
       <h2>New Client</h2>
@@ -2992,7 +2992,7 @@ function openItemForm(idOrName){
 
   clearModals();
   const ov=document.createElement('div');ov.className='modal-overlay';
-  ov.onclick=e=>{if(e.target===ov)closeItemForm();};
+  // backdrop taps no longer close the item form; use Cancel / Save
   ov.innerHTML=`<div class="modal" style="max-width:560px;">
     <div class="modal-top">
       <h2>${isNew?'New Item':'Edit Item'}</h2>
