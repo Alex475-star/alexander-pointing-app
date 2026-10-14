@@ -262,8 +262,11 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
   .lir{grid-template-columns:1fr 80px 50px 24px;gap:4px;}
   .lir input:nth-child(3),.lir select{display:none;}
   .tc{grid-template-columns:1fr;}
-  .sn{display:none;}
-  .sp{padding:12px;}
+  div:has(>.sn){flex-direction:column !important;}
+  .sn{width:100% !important;display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;padding:10px 12px;overflow:visible !important;border-right:none;border-bottom:1px solid #e5e5e0;flex-shrink:0;}
+  .sni{border:1px solid #d8d8d2;border-radius:18px;padding:8px 14px;font-size:14px;background:#fff;}
+  .sni.active{border-color:#276749;background:#e8f3ec;}
+  .sp{padding:12px;min-height:0;}
   .cust-body{padding:12px 12px 60px;}
   .cust-card{padding:14px;}
   .topbar-right .bg{font-size:11px;padding:6px 8px;}
