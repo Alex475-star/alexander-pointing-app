@@ -2034,17 +2034,19 @@ function updLI(i,f,v){S.ne.lineItems[i][f]=(f==='rate'||f==='qty')?parseFloat(v)
 function openPhotos(){document.getElementById('photo-input').click();}
 function removePhoto(i){S.ne.photos.splice(i,1);showEstModal();}
 function viewPhoto(src){window.open(src,'_blank');}
-var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1100, _PHOTO_TARGET=130000;
+var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1000, _PHOTO_TARGET=110000;
 function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
 function _photoFromSrc(src,maxDim,q0){return new Promise(function(res,rej){
   var im=new Image();
   im.onload=function(){try{
-    var sc=Math.min(1,maxDim/Math.max(im.naturalWidth,im.naturalHeight));
-    var c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));
-    var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
-    var q=q0,d=c.toDataURL('image/jpeg',q);
-    while(d.length>_PHOTO_TARGET&&q>0.45){q-=0.05;d=c.toDataURL('image/jpeg',q);}
-    res(d);
+    var best=null,dims=[maxDim,Math.round(maxDim*0.88),Math.round(maxDim*0.76),Math.round(maxDim*0.64)];
+    for(var di=0;di<dims.length&&!(best&&best.length<=_PHOTO_TARGET);di++){
+      var sc=Math.min(1,dims[di]/Math.max(im.naturalWidth,im.naturalHeight));
+      var c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));
+      var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+      for(var q=q0;q>=0.4;q-=0.08){var d=c.toDataURL('image/jpeg',q);best=d;if(d.length<=_PHOTO_TARGET)break;}
+    }
+    res(best);
   }catch(e){rej(e);}};
   im.onerror=function(){rej(new Error('unreadable image'));};
   im.src=src;});}
@@ -2604,7 +2606,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
     <!-- Photos -->
     ${(!isI&&(doc.photos||[]).length>0)?`<div style="margin-top:20px;border-top:1px solid #eee;padding-top:16px;">
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
         ${(doc.photos||[]).map(p=>`<img src="${p.data}" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">`).join('')}
       </div>
     </div>`:''}
@@ -3686,7 +3688,7 @@ function renderCustomerView(doc){
   // Photos
   var photosHtml='';
   if(doc.photos&&doc.photos.length>0){
-    photosHtml='<div style="margin:20px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">'
+    photosHtml='<div style="margin:20px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">'
       +doc.photos.map(function(p){return'<img src="'+p.data+'" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">';}).join('')+'</div>';
   }
 
