@@ -1044,14 +1044,18 @@ async function loadFromSupabase(){
         if(m.co)S.co={...DEF_CO,...m.co};
         if(Array.isArray(m.customItems))S.customItems=m.customItems;
       }
-      const remoteEsts=estRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
+      const allEsts=estRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
+      _trashE=allEsts.filter(d=>d.deletedAt);
+      const remoteEsts=allEsts.filter(d=>!d.deletedAt);
       S.estimates=mergeDocs('estimates',S.estimates,remoteEsts);
       _srvMeta=JSON.stringify(_metaObj());
       if(!remoteEsts.length&&!metaRow){S.clients=[];S.activity=[];}
     }
 
     if(invRows!==null){
-      const remoteInvs=invRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
+      const allInvs=invRows.filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
+      _trashI=allInvs.filter(d=>d.deletedAt);
+      const remoteInvs=allInvs.filter(d=>!d.deletedAt);
       S.invoices=mergeDocs('invoices',S.invoices,remoteInvs);
     }
 
@@ -1081,7 +1085,7 @@ async function loadFromSupabase(){
       }
     });
     S.activity=S.activity.slice(0,200);
-    if(estRows!==null&&invRows!==null)_synced=true;
+    if(estRows!==null&&invRows!==null){_synced=true;purgeTrash();}
     saveData();
     safeRender();
   }catch(e){console.log('Supabase load error:',e);}
@@ -1221,8 +1225,12 @@ function loadData(){
           apiFetch(SUPA_URL+'/rest/v1/estimates?select=ref,data&order=ref.desc&limit=500',{headers:hdrs}),
           apiFetch(SUPA_URL+'/rest/v1/invoices?select=data&order=ref.desc&limit=500',{headers:hdrs})
         ]);
-        const remEsts=(er.ok?await er.json():[]).filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
-        const remInvs=(ir.ok?await ir.json():[]).filter(r=>r.data).map(r=>r.data);
+        const allE=(er.ok?await er.json():[]).filter(r=>r.data&&r.ref!=='_META_').map(r=>r.data);
+        const allI=(ir.ok?await ir.json():[]).filter(r=>r.data).map(r=>r.data);
+        if(er.ok)_trashE=allE.filter(d=>d.deletedAt);
+        if(ir.ok)_trashI=allI.filter(d=>d.deletedAt);
+        const remEsts=allE.filter(d=>!d.deletedAt);
+        const remInvs=allI.filter(d=>!d.deletedAt);
         const prevApproved=new Set((S.estimates||[]).filter(e=>e.status==='APPROVED').map(e=>e.ref));
         const prevEstOpened=new Set((S.estimates||[]).filter(e=>e.emailOpened).map(e=>e.ref));
         const prevInvOpened=new Set((S.invoices||[]).filter(i=>i.emailOpened).map(i=>i.ref));
@@ -1294,6 +1302,7 @@ function rMore(m){
       ${[
         {icon:'⚙️',label:'Settings',action:"nav('settings')"},
         {icon:'📋',label:'Items',action:"nav('items')"},
+        {icon:'🗑️',label:'Recently deleted'+(trashCount()?' ('+trashCount()+')':''),action:"nav('trash')"},
         {icon:'⭐',label:'Collect Google Reviews',action:'openGoogleReviews()'},
         {icon:'📊',label:'Reports',action:"nav('admin')"},
       ].map(item=>`
@@ -1408,6 +1417,7 @@ function rSplit(m,kind){
       <div class="tabs">${tabs.map(t=>`<div class="tab ${cur===t?'active':''}" onclick="${setTab(t)}">${t}</div>`).join('')}</div>
       <div class="split-tools"><input class="si" placeholder="Search name, address or #" value="${_esc(isInv?(S.iq||''):(S.sq||''))}" oninput="spSearch('${kind}',this.value)"></div>
       <div id="sp-body">${_spListHtml(fl,kind,S.previewRef)}</div>
+      ${trashLinkHtml()}
     </div>
     <div class="split-r" id="split-detail"></div>
   </div>`;
@@ -1432,6 +1442,7 @@ function render(){
   else if(S.view==='reports')rReports(m);
   else if(S.view==='admin')rAdmin(m);
   else if(S.view==='more')rMore(m);
+  else if(S.view==='trash')rTrash(m);
   else if(S.view==='settings')rSettings(m);
   applyMobileLayout();
 }
@@ -1747,6 +1758,7 @@ function rEst(m){
   <div class="content">
     <div class="dl-tools"><input class="si" placeholder="Search by name, address or estimate #" value="${_esc(S.sq||'')}" oninput="S.sq=this.value;render()"><button class="bs" onclick="exportToExcel()">Export</button></div>
     ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.<br>Tap <strong>+ New Estimate</strong> to create one.</div>`:docListHtml(g,'est')}
+    ${trashLinkHtml()}
   </div>`;
   setTimeout(initSwipeDelete,100);
   if(S.modal==='ne')showEstModal();
@@ -2444,6 +2456,7 @@ function rInv(m){
   <div class="content">
     <div class="dl-tools"><input class="si" placeholder="Search by name, address or invoice #" value="${_esc(S.iq||'')}" oninput="S.iq=this.value;rInv(document.getElementById('main-area'))"><button class="bs" onclick="exportToExcel()">Export</button></div>
     ${fl.length===0?`<div class="empty dl-empty">No ${tab.toLowerCase()} invoices.<br>${(S.iq)?'No results for that search':'Convert an estimate to create one.'}</div>`:docListHtml(g,'inv')}
+    ${trashLinkHtml()}
   </div>`;
   setTimeout(initSwipeDelete,100);
 }
@@ -2504,18 +2517,81 @@ function openNewInv(){
   render();showEstModal();
 }
 
-async function deleteDoc(ref,type){
-  const label=type==='inv'?'invoice':'quote';
-  if(!confirm('Delete this '+label+'? This cannot be undone.'))return;
-  if(type==='inv'){
-    S.invoices=S.invoices.filter(i=>i.ref!==ref);
-    try{const h={...authHdr()};const dr=await apiFetch(SUPA_URL+'/rest/v1/invoices?ref=eq.'+ref,{method:'DELETE',headers:h});if(dr.ok)_forget('invoices:'+ref);}catch(e){}
-  }else{
-    S.estimates=S.estimates.filter(e=>e.ref!==ref);
-    try{const h={...authHdr()};const dr=await apiFetch(SUPA_URL+'/rest/v1/estimates?ref=eq.'+ref,{method:'DELETE',headers:h});if(dr.ok)_forget('estimates:'+ref);}catch(e){}
+// ---- Recently deleted (kept 30 days, then removed for good) ------------------
+var _trashE=[],_trashI=[];
+var TRASH_DAYS=30;
+function trashCount(){return _trashE.length+_trashI.length;}
+function _kindOf(ref){return String(ref).indexOf('invoice')>=0?'invoices':'estimates';}
+function _trashHdr(){return {'Content-Type':'application/json',...authHdr(),'Prefer':'resolution=merge-duplicates,return=minimal'};}
+async function purgeTrash(){
+  var cutoff=Date.now()-TRASH_DAYS*86400000;
+  var old=_trashE.concat(_trashI).filter(function(d){return new Date(d.deletedAt).getTime()<cutoff;});
+  for(var i=0;i<old.length;i++){
+    try{var r=await apiFetch(SUPA_URL+'/rest/v1/'+_kindOf(old[i].ref)+'?ref=eq.'+encodeURIComponent(old[i].ref),{method:'DELETE',headers:{...authHdr()}});
+      if(r.ok){_trashE=_trashE.filter(function(d){return d.ref!==old[i].ref;});_trashI=_trashI.filter(function(d){return d.ref!==old[i].ref;});}}catch(e){}
   }
-  saveData();render();toast(label.charAt(0).toUpperCase()+label.slice(1)+' deleted');
 }
+async function deleteDoc(ref,type){
+  var kind=type==='inv'?'invoices':'estimates';
+  var list=kind==='invoices'?S.invoices:S.estimates;
+  var doc=list.find(function(x){return x.ref===ref;});if(!doc)return;
+  var label=type==='inv'?'invoice':'quote';
+  if(!confirm('Delete '+label+' for '+(doc.clientName||'this customer')+' ('+fmt(calcGrandTotal(doc))+')?\n\nIt will be kept in Recently deleted for '+TRASH_DAYS+' days, then removed for good.'))return;
+  var t=JSON.parse(JSON.stringify(doc));
+  t.deletedAt=new Date().toISOString();
+  t.trashKey=doc.shareKey||'';
+  t.shareKey=newShareKey(); // the customer's old link stops working while it is in the bin
+  try{
+    var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:_trashHdr(),body:JSON.stringify([{ref:ref,data:t}])});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+  }catch(e){alert('Could not delete - please check your connection and try again.');return;}
+  if(kind==='invoices'){S.invoices=S.invoices.filter(function(i){return i.ref!==ref;});_trashI.unshift(t);}
+  else{S.estimates=S.estimates.filter(function(e){return e.ref!==ref;});_trashE.unshift(t);}
+  _forget(kind+':'+ref);
+  if(S.previewRef===ref)S.previewRef=null;
+  saveData();render();toast(label.charAt(0).toUpperCase()+label.slice(1)+' moved to Recently deleted');
+}
+async function restoreDoc(ref){
+  var kind=_kindOf(ref);
+  var src=kind==='invoices'?_trashI:_trashE;
+  var d=src.find(function(x){return x.ref===ref;});if(!d)return;
+  var r2=JSON.parse(JSON.stringify(d));
+  r2.shareKey=d.trashKey||d.shareKey;delete r2.deletedAt;delete r2.trashKey;
+  try{
+    var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:_trashHdr(),body:JSON.stringify([{ref:ref,data:r2}])});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+  }catch(e){alert('Could not restore - please check your connection and try again.');return;}
+  if(kind==='invoices'){_trashI=_trashI.filter(function(x){return x.ref!==ref;});S.invoices.unshift(r2);}
+  else{_trashE=_trashE.filter(function(x){return x.ref!==ref;});S.estimates.unshift(r2);}
+  _register(kind,r2);
+  saveData();render();toast('Restored');
+}
+async function purgeOne(ref){
+  var kind=_kindOf(ref);
+  if(!confirm('Delete this for good? This cannot be undone.'))return;
+  try{var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind+'?ref=eq.'+encodeURIComponent(ref),{method:'DELETE',headers:{...authHdr()}});if(!r.ok)throw new Error('HTTP '+r.status);}
+  catch(e){alert('Could not delete - please try again.');return;}
+  _trashE=_trashE.filter(function(x){return x.ref!==ref;});_trashI=_trashI.filter(function(x){return x.ref!==ref;});
+  render();toast('Deleted for good');
+}
+function trashLinkHtml(){
+  var n=trashCount();
+  return '<div onclick="nav(\'trash\')" style="text-align:center;padding:18px 10px 28px;color:#75756e;font-size:14px;cursor:pointer;">&#128465; Recently deleted'+(n?' ('+n+')':'')+'</div>';
+}
+function rTrash(m){
+  var all=_trashE.map(function(d){return {d:d,k:'Quote'};}).concat(_trashI.map(function(d){return {d:d,k:'Invoice'};}));
+  all.sort(function(a,b){return new Date(b.d.deletedAt)-new Date(a.d.deletedAt);});
+  m.innerHTML='<div class="topbar"><h1>Recently deleted</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="nav(\'estimates\')">Back</button></div></div>'
+  +'<div class="content"><div style="font-size:13px;color:#75756e;margin-bottom:14px;">Deleted quotes and invoices are kept here for '+TRASH_DAYS+' days, then removed for good. A customer\'s link stops working while an item is in here, and works again if you restore it.</div>'
+  +(all.length===0?'<div class="empty dl-empty">Nothing here.</div>':'<div class="dl-month">'+all.map(function(x){
+    var d=x.d,days=Math.max(0,TRASH_DAYS-Math.floor((Date.now()-new Date(d.deletedAt).getTime())/86400000));
+    return '<div class="dl-row" style="grid-template-columns:minmax(0,1fr) auto;cursor:default;">'
+      +'<div><div class="dl-name">'+_esc(d.clientName)+' - #'+_esc(d.ref)+'</div><div class="dl-date">'+x.k+' &middot; '+fmt(calcGrandTotal(d))+' &middot; deleted '+fdShort(d.deletedAt)+' &middot; '+days+' day'+(days===1?'':'s')+' left</div></div>'
+      +'<div class="dl-btns"><button class="dl-btn dl-open" onclick="restoreDoc(\''+d.ref+'\')">Restore</button><button class="dl-btn dl-edit" style="color:#c62828;" onclick="purgeOne(\''+d.ref+'\')">Delete</button></div></div>';
+  }).join('')+'</div>')
+  +'</div>';
+}
+
 
 function initSwipeDelete(){
   document.querySelectorAll('.row-wrap').forEach(function(wrap){
