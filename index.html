@@ -2034,37 +2034,46 @@ function updLI(i,f,v){S.ne.lineItems[i][f]=(f==='rate'||f==='qty')?parseFloat(v)
 function openPhotos(){document.getElementById('photo-input').click();}
 function removePhoto(i){S.ne.photos.splice(i,1);showEstModal();}
 function viewPhoto(src){window.open(src,'_blank');}
-var _PHOTO_BUDGET=1500000;
+var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1100, _PHOTO_TARGET=130000;
 function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
-function _compressPhoto(file,maxDim,q0){return new Promise(function(res,rej){
-  var url=URL.createObjectURL(file),im=new Image();
+function _photoFromSrc(src,maxDim,q0){return new Promise(function(res,rej){
+  var im=new Image();
   im.onload=function(){try{
     var sc=Math.min(1,maxDim/Math.max(im.naturalWidth,im.naturalHeight));
     var c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));
     var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
     var q=q0,d=c.toDataURL('image/jpeg',q);
-    while(d.length>200000&&q>0.4){q-=0.1;d=c.toDataURL('image/jpeg',q);}
-    URL.revokeObjectURL(url);res(d);
-  }catch(e){URL.revokeObjectURL(url);rej(e);}};
-  im.onerror=function(){URL.revokeObjectURL(url);rej(new Error('unreadable image'));};
-  im.src=url;});}
+    while(d.length>_PHOTO_TARGET&&q>0.45){q-=0.05;d=c.toDataURL('image/jpeg',q);}
+    res(d);
+  }catch(e){rej(e);}};
+  im.onerror=function(){rej(new Error('unreadable image'));};
+  im.src=src;});}
+function _compressPhoto(file){var url=URL.createObjectURL(file);return _photoFromSrc(url,_PHOTO_MAXDIM,0.72).then(function(d){URL.revokeObjectURL(url);return d;},function(e){URL.revokeObjectURL(url);throw e;});}
+async function _shrinkExistingPhotos(){
+  for(var i=0;i<(S.ne.photos||[]).length;i++){
+    var p=S.ne.photos[i];
+    if((p.data||'').length>_PHOTO_TARGET*1.4){try{p.data=await _photoFromSrc(p.data,_PHOTO_MAXDIM,0.72);}catch(e){}}
+  }
+}
 async function handlePhotos(input){
   var files=Array.from(input.files||[]);input.value='';
   if(!files.length)return;
   if(!S.ne.photos)S.ne.photos=[];
   toast('Adding photo'+(files.length>1?'s':'')+'...','#276749');
-  var added=0,skipped=0;
+  if(_photoBytes()+files.length*_PHOTO_TARGET*1.3>_PHOTO_BUDGET)await _shrinkExistingPhotos();
+  var added=0,skipped=0,full=false;
   for(var i=0;i<files.length;i++){
-    if(S.ne.photos.length>=10){toast('Max 10 photos per quote','#c62828');break;}
+    if(S.ne.photos.length>=10){full=true;break;}
     try{
-      var d=await _compressPhoto(files[i],1400,0.75);
-      if(_photoBytes()+d.length>_PHOTO_BUDGET)d=await _compressPhoto(files[i],1000,0.55);
+      var d=await _compressPhoto(files[i]);
       if(_photoBytes()+d.length>_PHOTO_BUDGET){skipped++;continue;}
       S.ne.photos.push({data:d,name:files[i].name});added++;
     }catch(e){skipped++;}
   }
-  if(skipped)toast(skipped+' photo'+(skipped>1?'s':'')+' not added (quote photo space is full or the file could not be read)','#c62828');
+  var left=files.length-added;
+  if(left>0){alert(added+' of '+files.length+' photos added.'+(full?' A quote can have up to 10 photos.':(skipped?' The rest could not be added (the quote has no photo space left, or a file could not be read).':'')));}
   showEstModal();
+
 
 }
 
@@ -2596,7 +2605,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
     <!-- Photos -->
     ${(!isI&&(doc.photos||[]).length>0)?`<div style="margin-top:20px;border-top:1px solid #eee;padding-top:16px;">
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
-        ${(doc.photos||[]).map(p=>`<img src="${p.data}" style="width:100%;border-radius:4px;object-fit:cover;">`).join('')}
+        ${(doc.photos||[]).map(p=>`<img src="${p.data}" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">`).join('')}
       </div>
     </div>`:''}
 
@@ -3677,8 +3686,8 @@ function renderCustomerView(doc){
   // Photos
   var photosHtml='';
   if(doc.photos&&doc.photos.length>0){
-    photosHtml='<div style="margin:20px 0;">'
-      +doc.photos.map(function(p){return'<img src="'+p.data+'" style="width:100%;border-radius:4px;object-fit:cover;max-height:240px;margin-bottom:8px;">';}).join('')+'</div>';
+    photosHtml='<div style="margin:20px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">'
+      +doc.photos.map(function(p){return'<img src="'+p.data+'" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">';}).join('')+'</div>';
   }
 
   // Bank details
