@@ -160,6 +160,66 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .b-active{background:#e3edf7;color:#1d4c73;}
 .b-paid{background:#e3f2ea;color:#1d5c3f;}
 .b-draft{background:#f3f4f6;color:#6b7280;}
+
+/* ---- simple document lists (Estimates / Invoices) ---- */
+.dl-tools{display:flex;gap:10px;align-items:center;margin-bottom:14px;}
+.dl-tools .si{flex:1;min-height:46px;border-radius:24px;padding:10px 18px;background:#ececea;border:1px solid transparent;}
+.dl-tools .si:focus{background:#fff;border-color:#276749;}
+.dl-tools .bs{min-height:46px;border-radius:24px;padding:0 20px;font-size:15px;font-weight:600;background:#ececea;border:none;color:#111;}
+.dl-sum{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 10px;border-bottom:2px solid #141414;}
+.dl-sum b{font-size:17px;font-weight:600;color:#141414;}
+.dl-sum span{font-size:16px;font-weight:600;color:#141414;}
+.dl-month{margin-bottom:22px;background:#fff;border-radius:10px;padding:14px 16px 4px;}
+.dl-row{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(0,1.9fr) 130px auto;gap:6px 16px;align-items:start;padding:18px 4px;border-bottom:1px solid #eeeeea;cursor:pointer;background:#fff;}
+.dl-month .row-wrap:last-child .dl-row{border-bottom:none;}
+.dl-name{font-size:16px;font-weight:700;color:#141414;line-height:1.3;word-break:break-word;}
+.dl-date{font-size:14px;color:#8a8a84;margin-top:4px;}
+.dl-mid{display:flex;gap:14px;align-items:flex-start;min-width:0;}
+.dl-pill{font-size:12px;font-weight:700;letter-spacing:.03em;padding:5px 12px;border-radius:999px;flex-shrink:0;}
+.dl-addr{font-size:14px;color:#8a8a84;line-height:1.45;min-width:0;}
+.dl-amt{font-size:16px;font-weight:700;color:#141414;font-variant-numeric:tabular-nums;}
+.dl-seen{display:flex;align-items:center;gap:5px;font-size:13px;color:#75756e;margin-top:6px;font-weight:400;}
+.dl-seen svg{width:15px;height:15px;}
+.dl-btns{display:flex;gap:10px;}
+.dl-btn{min-height:44px;min-width:78px;border-radius:24px;font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 18px;-webkit-tap-highlight-color:transparent;font-family:inherit;}
+.dl-open{background:#fff;border:2px solid #9a9a94;color:#141414;}
+.dl-edit{background:#e0e0dd;border:2px solid transparent;color:#141414;}
+.dl-review{padding:0 4px 14px;font-size:13px;color:#888;background:#fff;}
+.dl-review button{padding:9px 14px;background:#f0faf4;border:1px solid #a7f3d0;border-radius:20px;color:#276749;font-size:13px;font-weight:600;cursor:pointer;}
+.dl-empty{background:#fff;border-radius:10px;}
+@media(max-width:900px){
+  .dl-row{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"who amt btns" "mid mid btns";padding:16px 4px;}
+  .dl-who{grid-area:who}.dl-mid{grid-area:mid;align-items:center;flex-wrap:wrap;gap:6px 12px}.dl-amtc{grid-area:amt;text-align:right}.dl-btns{grid-area:btns;align-self:center}
+}
+@media(max-width:560px){
+  .dl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who amt" "mid mid" "btns btns";}
+  .dl-btns{justify-content:flex-end}
+}
+
+/* ---- split view (iPad & laptop) ---- */
+.split{display:flex;flex:1;min-height:0;overflow:hidden;}
+.split-l{width:330px;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#fff;border-right:1px solid #dcdcd6;display:flex;flex-direction:column;}
+.split-r{flex:1;min-width:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f0f0ec;display:flex;flex-direction:column;}
+.split-r button[onclick^="S.previewRef=null"]{display:none!important;}
+.split-l .tabs{padding:0 6px;position:sticky;top:0;z-index:2;}
+.split-l .tab{flex:1;text-align:center;padding:12px 4px;font-size:12px;}
+.split-tools{padding:10px 12px;background:#fff;}
+.split-tools .si{min-height:42px;border-radius:22px;padding:8px 16px;background:#ececea;border:1px solid transparent;font-size:15px;}
+.sp-month{padding:12px 14px 6px;font-size:13px;font-weight:700;color:#141414;background:#fff;}
+.sp-row{padding:13px 14px;border-bottom:1px solid #eeeeea;cursor:pointer;background:#fff;-webkit-tap-highlight-color:transparent;}
+.sp-row.sel{background:#d9dadb;}
+.sp-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
+.sp-name{font-size:16px;font-weight:700;color:#141414;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sp-amt{font-size:15px;font-weight:600;color:#141414;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.sp-sub{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:12px;color:#8a8a84;}
+.sp-sub .dl-pill{font-size:10px;padding:3px 9px;}
+.sp-sub svg{width:13px;height:13px;vertical-align:-2px;margin-left:4px;}
+.split-l .row-wrap{border-radius:0;margin:0;}
+.split-l .row-del-bg{border-radius:0;}
+.sp-empty{padding:30px 18px;color:#888;text-align:center;font-size:14px;}
+@media(max-width:899px){.split-l{width:290px;}}
+.navtog{background:none;border:none;font-size:22px;line-height:1;padding:6px 12px 6px 0;margin-right:4px;cursor:pointer;color:#276749;min-height:40px;min-width:40px;-webkit-tap-highlight-color:transparent;}
+#navtog-float{position:fixed;left:8px;bottom:10px;z-index:60;width:46px;height:46px;border-radius:50%;background:#1a2332;color:#fff;border:none;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;display:none;}
 .month-label{font-size:13px;font-weight:700;color:#111;margin-bottom:8px;margin-top:4px;}
 .month-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 
@@ -334,6 +394,7 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .cust-success{text-align:center;padding:40px 20px;}
 .cust-success-icon{font-size:64px;margin-bottom:16px;}
 .cust-expired{text-align:center;padding:40px 20px;color:#888;}
+body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
@@ -1300,9 +1361,67 @@ function toast(msg,col){
   setTimeout(()=>t.remove(),3000);
 }
 
+
+function _wide(){return window.innerWidth>=700;}
+function _spRow(e,kind,sel){
+  const p=_docPill(e,kind);
+  const ico=e.emailed?emailIco(e):'';
+  return `<div class="row-wrap"><div class="row-del-bg" onclick="deleteDoc('${e.ref}','${kind==='inv'?'inv':'est'}')">Delete</div><div class="row-content">
+    <div class="sp-row ${sel?'sel':''}" onclick="selDoc('${e.ref}')">
+      <div class="sp-top"><span class="sp-name">${_esc(e.clientName)}</span><span class="sp-amt">${fmt(calcGrandTotal(e))}</span></div>
+      <div class="sp-sub"><span>${fdShort(e.date)} · #${_esc(e.ref)}${ico}</span><span class="dl-pill" style="background:${p.bg};color:${p.c};">${p.t}</span></div>
+    </div></div></div>`;
+}
+function _spListHtml(fl,kind,selRef){
+  const g=grpByMonth(fl);
+  if(!fl.length)return `<div class="sp-empty">${kind==='inv'?'No invoices here.':'No estimates here.'}</div>`;
+  return Object.entries(g).map(([mo,items])=>`<div class="sp-month">${mo}</div>${items.map(e=>_spRow(e,kind,e.ref===selRef)).join('')}`).join('');
+}
+function _spFilter(kind){
+  if(kind==='inv'){
+    const tab=S.itab||'ACTIVE',q=(S.iq||'').toLowerCase();
+    return (S.invoices||[]).filter(i=>(tab==='ACTIVE'?i.status!=='PAID':i.status==='PAID')&&(!q||(i.clientName||'').toLowerCase().includes(q)||(i.ref||'').toLowerCase().includes(q)||(i.serviceAddress||i.address||'').toLowerCase().includes(q)));
+  }
+  const q=(S.sq||'').toLowerCase();
+  return (S.estimates||[]).filter(e=>e.status===S.stab&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(e.serviceAddress||e.address||'').toLowerCase().includes(q)));
+}
+function selDoc(ref){S.previewRef=ref;render();}
+function spSearch(kind,v){
+  if(kind==='inv')S.iq=v;else S.sq=v;
+  const fl=_spFilter(kind);const el=document.getElementById('sp-body');
+  if(el){el.innerHTML=_spListHtml(fl,kind,S.previewRef);setTimeout(initSwipeDelete,50);}
+}
+function rSplit(m,kind){
+  const fl=_spFilter(kind);
+  let sel=fl.find(x=>x.ref===S.previewRef);
+  if(!sel&&fl.length){sel=fl[0];}
+  S.previewRef=sel?sel.ref:null;
+  const old=document.querySelector('.split-l');const top=old?old.scrollTop:0;
+  const isInv=kind==='inv';
+  const tabs=isInv?['ACTIVE','PAID']:['PENDING','APPROVED','DECLINED'];
+  const cur=isInv?(S.itab||'ACTIVE'):S.stab;
+  const setTab=t=>isInv?`S.itab='${t}';S.previewRef=null;render()`:`S.stab='${t}';S.previewRef=null;render()`;
+  m.innerHTML=`
+  <div class="topbar"><h1>${isInv?'Invoices':'Estimates'}</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="exportToExcel()">Export</button><button class="bg" onclick="${isInv?'openNewInv()':'openNE()'}">+ New ${isInv?'Invoice':'Estimate'}</button></div></div>
+  <div class="split">
+    <div class="split-l">
+      <div class="tabs">${tabs.map(t=>`<div class="tab ${cur===t?'active':''}" onclick="${setTab(t)}">${t}</div>`).join('')}</div>
+      <div class="split-tools"><input class="si" placeholder="Search name, address or #" value="${_esc(isInv?(S.iq||''):(S.sq||''))}" oninput="spSearch('${kind}',this.value)"></div>
+      <div id="sp-body">${_spListHtml(fl,kind,S.previewRef)}</div>
+    </div>
+    <div class="split-r" id="split-detail"></div>
+  </div>`;
+  const det=document.getElementById('split-detail');
+  if(sel){rPreview(det);}
+  else det.innerHTML=`<div class="sp-empty" style="margin-top:60px;">${isInv?'No invoice selected':'Tap New Estimate to create one'}</div>`;
+  const nl=document.querySelector('.split-l');if(nl)nl.scrollTop=top;
+  setTimeout(initSwipeDelete,100);
+  if(S.modal==='ne')showEstModal();
+}
 function render(){
   const m=document.getElementById('main-area');if(!m)return;
   clearModals();
+  if(_wide()&&(S.view==='estimates'||S.view==='invoices')){rSplit(m,S.view==='invoices'?'inv':'est');applyMobileLayout();return;}
   if(S.previewRef){rPreview(m);return;}
   if(S.view==='dashboard')rDash(m);
   else if(S.view==='estimates')rEst(m);
@@ -1574,42 +1693,60 @@ function convLikelihood(doc){
   return`<span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:3px;">📧 SENT</span>`;
 }
 
+
+function _docPill(d,kind){
+  if(kind==='inv'){
+    if(d.status==='PAID')return{t:'PAID',bg:'#dcfce7',c:'#166534'};
+    if(isOD(d))return{t:'OVERDUE',bg:'#e02424',c:'#fff'};
+    return d.emailed?{t:'ISSUED',bg:'#dbeafe',c:'#1a56db'}:{t:'DRAFT',bg:'#ececea',c:'#6b7280'};
+  }
+  if(d.status==='APPROVED')return{t:'APPROVED',bg:'#dcfce7',c:'#166534'};
+  if(d.status==='DECLINED')return{t:'DECLINED',bg:'#fce7f3',c:'#9d174d'};
+  return d.emailed?{t:'ISSUED',bg:'#dbeafe',c:'#1a56db'}:{t:'DRAFT',bg:'#ececea',c:'#6b7280'};
+}
+function _esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _fdLong(d){try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});}catch(e){return '';}}
+function docRowHtml(e,kind){
+  const p=_docPill(e,kind);
+  const addr=[e.serviceAddress||e.address||'',e.mobile||e.phone||''].filter(Boolean).map(_esc).join('<br>');
+  const seen=e.emailed?(e.emailOpened||(e.viewCount||0)>0
+    ?`<div class="dl-seen">${emailIco(e)}<span>Email opened${(e.viewCount||0)>1?' · '+e.viewCount+' views':''}</span></div>`
+    :`<div class="dl-seen">${emailIco(e)}<span>Email sent</span></div>`):'';
+  const ed=kind==='inv'?`editI('${e.ref}')`:`editE('${e.ref}')`;
+  const k=kind==='inv'?'inv':'est';
+  return `<div class="row-wrap">
+    <div class="row-del-bg" onclick="deleteDoc('${e.ref}','${k}')">Delete</div>
+    <div class="row-content">
+      <div class="dl-row" onclick="showPreview('${e.ref}')">
+        <div class="dl-who"><div class="dl-name">${_esc(e.clientName)} - #${_esc(e.ref)}</div><div class="dl-date">${_fdLong(e.date)}</div></div>
+        <div class="dl-mid"><span class="dl-pill" style="background:${p.bg};color:${p.c};">${p.t}</span><div class="dl-addr">${addr}</div></div>
+        <div class="dl-amtc"><div class="dl-amt">${fmt(calcGrandTotal(e))}</div>${seen}</div>
+        <div class="dl-btns"><button class="dl-btn dl-open" onclick="event.stopPropagation();showPreview('${e.ref}')">Open</button><button class="dl-btn dl-edit" onclick="event.stopPropagation();${ed}">Edit</button></div>
+      </div>
+      ${kind==='inv'&&e.status==='PAID'&&!e.reviewSent?`<div class="dl-review"><button onclick="event.stopPropagation();sendReviewLink('${e.ref}')">⭐ Send review link to ${_esc(e.clientName)}</button></div>`:kind==='inv'&&e.status==='PAID'&&e.reviewSent?`<div class="dl-review">✅ Review link sent</div>`:''}
+    </div>
+  </div>`;
+}
+function docListHtml(g,kind){
+  return Object.entries(g).map(([mo,items])=>`<div class="dl-month">
+    <div class="dl-sum"><b>${mo}</b><span>Total: ${fmt(items.reduce((s,e)=>s+calcGrandTotal(e),0))}</span></div>
+    ${items.map(e=>docRowHtml(e,kind)).join('')}
+  </div>`).join('');
+}
+
 function rEst(m){
   const fl=(S.estimates||[]).filter(e=>{
     const tm=e.status===S.stab;
     const q=(S.sq||'').toLowerCase();
-    return tm&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q));
+    return tm&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(e.serviceAddress||e.address||'').toLowerCase().includes(q));
   });
   const g=grpByMonth(fl);
   m.innerHTML=`
-  <div class="topbar"><h1>Estimates</h1><div style="display:flex;gap:8px;"><button class="bs">Export</button><button class="bg" onclick="openNE()">+ New Estimate</button></div></div>
+  <div class="topbar"><h1>Estimates</h1><div style="display:flex;gap:8px;"><button class="bg" onclick="openNE()">+ New Estimate</button></div></div>
   <div class="tabs">${['PENDING','APPROVED','DECLINED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
   <div class="content">
-    <div style="margin-bottom:12px;"><input class="si" placeholder="Search estimates..." value="${S.sq||''}" oninput="S.sq=this.value;render()"></div>
-    ${Object.keys(g).length===0?`<div class="empty">No ${S.stab.toLowerCase()} estimates.<br>Click <strong>+ New Estimate</strong> to create one.</div>`:
-      Object.entries(g).map(([mo,items])=>`<div style="margin-bottom:18px;">
-        <div class="month-row"><span class="month-label">${mo}</span></div>
-        <div class="list-box">
-          ${items.map(e=>{const vs=viewScore(e);return`<div class="row-wrap">
-            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','est')">Delete</div>
-            <div class="row-content">
-            <div class="list-row" style="position:relative;" onclick="editE('${e.ref}')">
-            <button class="row-hover-del" onclick="event.stopPropagation();deleteDoc('${e.ref}','est')">🗑</button>
-            <div style="flex:1;min-width:0;">
-              <div class="list-name">${e.clientName}</div>
-              <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
-                <span class="list-sub" style="margin:0;">${fdShort(e.date)} · #${e.ref}</span>
-                ${vs?`<span style="font-size:10px;font-weight:600;color:${vs.col};background:${vs.bg};padding:1px 6px;border-radius:3px;" title="${vs.tip}">${vs.label}</span>`:''}
-              </div>
-            </div>
-            <div class="list-right">
-              ${convLikelihood(e)}
-              ${emailIco(e)}
-              <div class="list-amt">${fmt(calcGrandTotal(e))}</div>
-            </div>
-          </div></div></div>`;}).join('')}
-        </div>
-      </div>`).join('')}
+    <div class="dl-tools"><input class="si" placeholder="Search by name, address or estimate #" value="${_esc(S.sq||'')}" oninput="S.sq=this.value;render()"><button class="bs" onclick="exportToExcel()">Export</button></div>
+    ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.<br>Tap <strong>+ New Estimate</strong> to create one.</div>`:docListHtml(g,'est')}
   </div>`;
   setTimeout(initSwipeDelete,100);
   if(S.modal==='ne')showEstModal();
@@ -2297,45 +2434,19 @@ function rInv(m){
   const q=(S.iq||'').toLowerCase();
   const fl=(S.invoices||[]).filter(i=>{
     const tabMatch=tab==='ACTIVE'?i.status!=='PAID':i.status==='PAID';
-    const searchMatch=!q||(i.clientName||'').toLowerCase().includes(q)||(i.ref||'').toLowerCase().includes(q);
+    const searchMatch=!q||(i.clientName||'').toLowerCase().includes(q)||(i.ref||'').toLowerCase().includes(q)||(i.serviceAddress||i.address||'').toLowerCase().includes(q);
     return tabMatch&&searchMatch;
   });
   const g=grpByMonth(fl);
   m.innerHTML=`
-  <div class="topbar"><h1>Invoices</h1><div style="display:flex;gap:8px;"><button class="bs">Export</button><button class="bg" onclick="openNewInv()">+ New Invoice</button></div></div>
+  <div class="topbar"><h1>Invoices</h1><div style="display:flex;gap:8px;"><button class="bg" onclick="openNewInv()">+ New Invoice</button></div></div>
   <div class="tabs">${['ACTIVE','PAID'].map(t=>`<div class="tab ${tab===t?'active':''}" onclick="S.itab='${t}';rInv(document.getElementById('main-area'))">${t}</div>`).join('')}</div>
   <div class="content">
-    <div style="margin-bottom:12px;"><input class="si" placeholder="Search invoices..." value="${S.iq||''}" oninput="S.iq=this.value;rInv(document.getElementById('main-area'))"></div>
-    ${fl.length===0?`<div class="empty">No ${tab.toLowerCase()} invoices.<br>${(S.iq)?'No results for that search':'Convert an estimate to create one.'}</div>`:
-      Object.entries(g).map(([mo,items])=>`<div style="margin-bottom:18px;">
-        <div class="month-row"><span class="month-label">${mo}</span><span class="month-total">${fmt(items.reduce((s,e)=>s+tot(e.lineItems),0))}</span></div>
-        <div class="list-box">
-          ${items.map(e=>`<div class="row-wrap">
-            <div class="row-del-bg" onclick="deleteDoc('${e.ref}','inv')">Delete</div>
-            <div class="row-content">
-            <div class="list-row" style="flex-direction:column;align-items:stretch;gap:0;position:relative;" onclick="">
-            <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="showPreview('${e.ref}')">
-              <div style="flex:1;min-width:0;">
-                <div class="list-name">${e.clientName}</div>
-                <div class="list-sub">${fdShort(e.date)} · #${e.ref}</div>
-              </div>
-              <div class="list-right" style="padding-right:36px;">
-                ${emailIco(e)}
-                <div class="list-amt">${fmt(calcGrandTotal(e))}</div>
-                <span class="bdg ${e.status==='PAID'?'b-paid':isOD(e)?'b-overdue':'b-active'}">${e.status==='PAID'?'PAID':isOD(e)?'OVERDUE':'ACTIVE'}</span>
-              </div>
-            </div>
-            <button class="row-hover-del" onclick="event.stopPropagation();deleteDoc('${e.ref}','inv')">🗑</button>
-            ${e.status==='PAID'&&!e.reviewSent?`<div style="padding:8px 0 2px;">
-              <button onclick="event.stopPropagation();sendReviewLink('${e.ref}')" style="width:100%;padding:8px 12px;background:#f0faf4;border:1px solid #a7f3d0;border-radius:7px;color:#276749;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                ⭐ Send Review Link to ${e.clientName}
-              </button>
-            </div>`:e.status==='PAID'&&e.reviewSent?`<div style="padding:6px 0 2px;font-size:11px;color:#888;text-align:center;">✅ Review link sent</div>`:''}
-          </div></div></div>`).join('')}
-        </div>
-      </div>`).join('')}
-  </div>`;}
+    <div class="dl-tools"><input class="si" placeholder="Search by name, address or invoice #" value="${_esc(S.iq||'')}" oninput="S.iq=this.value;rInv(document.getElementById('main-area'))"><button class="bs" onclick="exportToExcel()">Export</button></div>
+    ${fl.length===0?`<div class="empty dl-empty">No ${tab.toLowerCase()} invoices.<br>${(S.iq)?'No results for that search':'Convert an estimate to create one.'}</div>`:docListHtml(g,'inv')}
+  </div>`;
   setTimeout(initSwipeDelete,100);
+}
 
 
 async function markPaid(ref){
@@ -4024,14 +4135,28 @@ function previewCustomerView(ref){
   showCustomerView(ref);
 }
 
+function _navHidden(){try{return localStorage.getItem('apl_nav_hidden')==='1';}catch(e){return false;}}
+function toggleNav(){try{localStorage.setItem('apl_nav_hidden',_navHidden()?'0':'1');}catch(e){}applyMobileLayout();}
 function applyMobileLayout(){
   const isMobile=window.innerWidth<=1024; // always true on phones
+  const hid=_navHidden();
+  document.body.classList.toggle('nav-hidden',hid);
   const sb=document.querySelector('.sb');
   const bn=document.querySelector('.bottom-nav');
   const mn=document.querySelector('.mn');
-  if(sb)sb.style.display=isMobile?'none':'flex';
-  if(bn)bn.style.display=isMobile?'block':'none';
-  if(mn&&isMobile)mn.style.paddingBottom='56px';
+  if(sb)sb.style.display=(isMobile||hid)?'none':'flex';
+  if(bn)bn.style.display=(isMobile&&!hid)?'block':'none';
+  if(mn)mn.style.paddingBottom=(isMobile&&!hid)?'56px':'';
+  const tb=document.querySelector('#main-area .topbar');
+  if(tb&&!tb.querySelector('.navtog')){
+    const bt=document.createElement('button');bt.className='navtog';bt.setAttribute('aria-label','Show or hide menu');bt.innerHTML='&#9776;';bt.onclick=toggleNav;
+    const h=tb.querySelector('h1');
+    if(h&&h.parentNode===tb){const w=document.createElement('div');w.style.cssText='display:flex;align-items:center;min-width:0;';tb.insertBefore(w,h);w.appendChild(bt);w.appendChild(h);}
+    else tb.insertBefore(bt,tb.firstChild);
+  }
+  let fl=document.getElementById('navtog-float');
+  if(!fl){fl=document.createElement('button');fl.id='navtog-float';fl.innerHTML='&#9776;';fl.onclick=toggleNav;document.body.appendChild(fl);}
+  fl.style.display=(hid&&!tb)?'block':'none';
 }
 window.addEventListener('resize',applyMobileLayout);
 applyMobileLayout();
