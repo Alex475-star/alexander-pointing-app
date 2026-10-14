@@ -1097,6 +1097,7 @@ async function loadFromSupabase(){
         actRefs.add('paid_'+i.ref);
       }
     });
+    _fixActTimes();
     S.activity=S.activity.slice(0,200);
     if(estRows!==null&&invRows!==null){_synced=true;purgeTrash();}
     saveData();
@@ -1267,6 +1268,7 @@ function loadData(){
             addAct('paid',i.ref,i.clientName);updateBadge();changed=true;
           }
         });
+        _fixActTimes();
         if(changed)saveData();
         safeRender();
       }catch(e){console.log('Poll error:',e);}
@@ -1274,6 +1276,17 @@ function loadData(){
   }
 }
 
+function _fixActTimes(){
+  try{
+    var m={};
+    (S.estimates||[]).concat(S.invoices||[]).forEach(function(d){if(d&&d.ref)m[d.ref]=d;});
+    (S.activity||[]).forEach(function(a){
+      var d=m[a.ref];if(!d)return;
+      var t=a.type==='opened'?d.openedAt:a.type==='signed'?d.signedAt:a.type==='paid'?d.paidAt:null;
+      if(t&&a.time!==t)a.time=t;
+    });
+  }catch(e){}
+}
 function safeRender(){if(document.querySelector('.modal-overlay,.send-overlay')||S.modal)return;render();}
 function fmt(n){return'£'+parseFloat(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function tot(li){return(li||[]).reduce((s,i)=>s+(parseFloat(i.rate||0)*parseFloat(i.qty||1)),0);}
@@ -1707,7 +1720,11 @@ function simulateNotif(){
 // --- Estimates ---------------------------------------------------------------
 function emailIco(doc){
   if(!doc.emailed)return`<svg class="email-ico" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
-  if(doc.emailOpened)return`<svg class="email-ico" viewBox="0 0 24 24" fill="none" stroke="#276749" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/><line x1="2" y1="6" x2="7" y2="11"/><line x1="22" y1="6" x2="17" y2="11"/></svg>`;
+  if(doc.emailOpened){
+    var done=(doc.status==='APPROVED'||doc.status==='PAID'||!!doc.signature);
+    var c=done?'#1b7a3e':'#276749';
+    return '<svg class="email-ico" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M2 10l10-7 10 7v9c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2z"/><path d="M6 11V6.5c0-.8.6-1.5 1.5-1.5h9c.9 0 1.5.7 1.5 1.5V11" fill="#fff"/>'+(done?'<polyline points="9,8.5 11,10.5 15,6.8" stroke-width="1.7"/>':'<line x1="9" y1="8" x2="15" y2="8"/>')+'<polyline points="2,10 12,16 22,10"/></svg>';
+  }
   return`<svg class="email-ico" viewBox="0 0 24 24" fill="none" stroke="#1565c0" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
 }
 
