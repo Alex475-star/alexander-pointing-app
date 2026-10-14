@@ -2727,8 +2727,23 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
     <!-- Terms -->
     <div style="margin-top:16px;padding:12px 14px;background:#f8f9fa;border-radius:6px;font-size:11px;color:#666;line-height:1.7;border-left:3px solid #276749;">${isI?(doc.invoiceFooter||c.invoiceFooter||''):(doc.quoteFooter||c.quoteFooter||'')}</div>
+    ${fullTCHtml(doc)}
 
 </div>`;
+}
+
+function fullTCHtml(doc){
+  if(!doc||String(doc.ref||'').includes('invoice'))return '';
+  var t=doc.quoteTC||(S.co&&S.co.quoteTC)||APL_TC||'';
+  if(!t)return '';
+  var h=t.split('\n').map(function(line){
+    var l=line.trim();
+    if(!l)return '<div style="margin:3px 0;"></div>';
+    if(l==='TERMS & CONDITIONS OF SERVICE')return '<div style="font-size:12px;font-weight:800;color:#333;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">'+_esc(line)+'</div>';
+    if(/^\d+\.\s/.test(l))return '<div style="font-size:11px;font-weight:700;color:#333;margin-top:10px;margin-bottom:2px;">'+_esc(line)+'</div>';
+    return '<div style="font-size:11px;color:#555;line-height:1.6;">'+_esc(line)+'</div>';
+  }).join('');
+  return '<div style="margin-top:22px;padding:16px;background:#f9f9f7;border-top:1px solid #e0e0e0;page-break-before:always;break-before:page;">'+h+'</div>';
 }
 
 function renderMobilePreview(doc,c,grand,showQty,showRate,showTotal){
@@ -2793,6 +2808,7 @@ function renderMobilePreview(doc,c,grand,showQty,showRate,showTotal){
     </div>
 
     <div style="padding:12px 16px;font-size:11px;color:#777;line-height:1.6;border-top:1px solid #eee;">${isI?(doc.invoiceFooter||c.invoiceFooter||''):(doc.quoteFooter||c.quoteFooter||'')}</div>
+    ${fullTCHtml(doc)}
   </div>`;
 }
 
