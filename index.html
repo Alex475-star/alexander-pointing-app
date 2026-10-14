@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- build 2026-10-14 17:20 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1443,7 +1442,18 @@ function rSplit(m,kind){
   setTimeout(initSwipeDelete,100);
   if(S.modal==='ne')showEstModal();
 }
+function _zoomFor(on){
+  try{var mt=document.querySelector('meta[name=viewport]');if(!mt)return;
+    var base='width=device-width, initial-scale=1.0, viewport-fit=cover';
+    var want=on?base:base+', maximum-scale=1.0, user-scalable=no';
+    if(mt.getAttribute('content')!==want)mt.setAttribute('content',want);
+  }catch(e){}
+}
 function render(){
+  _renderInner();
+  _zoomFor(!!S.previewRef);
+}
+function _renderInner(){
   const m=document.getElementById('main-area');if(!m)return;
   clearModals();
   if(_wide()&&(S.view==='estimates'||S.view==='invoices')){rSplit(m,S.view==='invoices'?'inv':'est');applyMobileLayout();return;}
