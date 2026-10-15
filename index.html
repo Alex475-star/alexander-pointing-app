@@ -2703,7 +2703,14 @@ function calEvent(k){
   h+='<div style="font-size:14px;margin-bottom:10px;"><b>'+_vpEsc(when)+'</b></div>';
   if(e.location)h+='<div style="font-size:14px;margin-bottom:10px;">'+_vpEsc(e.location)+'</div>';
   if(e.description)h+='<div style="font-size:13px;color:#444;white-space:pre-wrap;background:#f5f5f3;border-radius:8px;padding:10px;margin-bottom:12px;">'+_vpEsc(e.description)+'</div>';
+  var nums=[];
+  function addN(n){if(!n)return;var d=String(n).replace(/[^\d+]/g,'');if(d.replace(/\D/g,'').length<10)return;if(nums.some(function(x){return x.d===d;}))return;nums.push({d:d,t:String(n).trim()});}
+  var qq=ref?(S.estimates||[]).find(function(q){return q.ref===ref;}):null;
+  if(qq){addN(qq.mobile);addN(qq.phone);}
+  (e.description||'').replace(/(?:\+44[\d ]{9,12}\d|\b0[\d ]{9,11}\d)/g,function(m){addN(m);return m;});
+  var isPhone=/iPhone|iPod|Android.+Mobile/i.test(navigator.userAgent||'');
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  if(isPhone)nums.forEach(function(x){h+='<a class="bg" style="text-decoration:none;display:inline-block;" href="tel:'+x.d+'">Call '+_vpEsc(x.t)+'</a>';});
   if(ref&&(S.estimates||[]).some(function(q){return q.ref===ref;}))h+='<button class="bg" onclick="calOpenQuote(\''+ref+'\')">Open quote</button>';
   if(e.location)h+='<a class="bs" style="text-decoration:none;display:inline-block;" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.location)+'">Directions</a>';
   h+='</div></div></div>';
