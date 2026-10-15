@@ -2212,57 +2212,167 @@ function openNewClientForm(){
   document.body.appendChild(ov);
 }
 
+var _VP={month:null,day:'',time:'',events:{},fail:false};
+var _ENQ={date:'',time:'',busy:false};
+function _pad2(n){return (n<10?'0':'')+n;}
+function _ymd(d){return d.getFullYear()+'-'+_pad2(d.getMonth()+1)+'-'+_pad2(d.getDate());}
+function _vpEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _vpMins(iso){return parseInt(iso.slice(11,13),10)*60+parseInt(iso.slice(14,16),10);}
+function _vpNiceDay(ymd){return new Date(ymd+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});}
+function _enqWhenLabel(){
+  var b=document.getElementById('ne2-when');if(!b)return;
+  if(_ENQ.date&&_ENQ.time){b.textContent=new Date(_ENQ.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '+_ENQ.time;b.style.color='#111';}
+  else{b.textContent='Choose date and time';b.style.color='#888';}
+}
 function openNewEnquiry(){
   clearModals();
-  var today=new Date().toISOString().split('T')[0];
+  _ENQ={date:'',time:'',busy:false};_VP.day='';_VP.time='';
+  var f=function(id,label,ph,extra){return '<div class="fl"><label>'+label+'</label><input class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="off" '+(extra||'')+'></div>';};
   var ov=document.createElement('div');ov.className='modal-overlay';
   ov.innerHTML='<div class="modal" style="max-width:500px;">'
-   +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" onclick="saveEnquiry()">Create Quote</button></div></div>'
+   +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" id="ne2-save" onclick="saveEnquiry()">Create Quote</button></div></div>'
    +'<div class="modal-body">'
-   +'<div class="fl"><label>Full Name</label><input class="fi" id="ne2-name" placeholder="Customer full name" autocapitalize="words" autocomplete="off" autocorrect="off" oninput="capWords(this)"></div>'
-   +'<div class="fl"><label>Mobile Number</label><input class="fi" id="ne2-mobile" type="tel" inputmode="tel" placeholder="Mobile number" autocomplete="off"></div>'
-   +'<div class="fl"><label>Email</label><input class="fi" id="ne2-email" type="email" placeholder="Email address" autocapitalize="none" autocomplete="off" autocorrect="off"></div>'
-   +'<div class="fl"><label>Address</label><input class="fi" id="ne2-addr" placeholder="Street and town" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>'
-   +'<div class="fl"><label>Postcode</label><input class="fi" id="ne2-post" placeholder="Postcode" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;" oninput="capUpper(this)"></div>'
-   +'<div class="tc"><div class="fl"><label>Visit Date</label><input class="fi" id="ne2-date" type="date" value="'+today+'"></div>'
-   +'<div class="fl"><label>Visit Time</label><input class="fi" id="ne2-time" type="time"></div></div>'
+   +f('ne2-name','Full Name','Customer full name','autocapitalize="words" autocorrect="off" oninput="capWords(this)"')
+   +f('ne2-mobile','Mobile Number','Mobile number','type="tel" inputmode="tel"')
+   +f('ne2-mobile2','Phone Number 2','Home or other number (optional)','type="tel" inputmode="tel"')
+   +f('ne2-email','Email','Email address','type="email" autocapitalize="none" autocorrect="off"')
+   +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
+   +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
+   +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
+   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this)"')
+   +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
   document.body.appendChild(ov);
 }
+function openVisitPicker(){
+  var base=_VP.day?new Date(_VP.day+'T12:00:00'):new Date();
+  if(!_VP.day)_VP.day=_ymd(base);
+  _VP.month=new Date(base.getFullYear(),base.getMonth(),1);
+  var old=document.getElementById('vp-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.className='modal-overlay';ov.id='vp-ov';ov.style.zIndex='200';
+  ov.innerHTML='<div class="modal" style="max-width:520px;"><div class="modal-top"><h2>Visit date &amp; time</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="closeVisitPicker()">Cancel</button><button class="bg" onclick="doneVisitPicker()">Done</button></div></div><div class="modal-body" id="vp-body"></div></div>';
+  document.body.appendChild(ov);
+  _vpLoad();
+}
+function closeVisitPicker(){var o=document.getElementById('vp-ov');if(o)o.remove();}
+function doneVisitPicker(){
+  if(!_VP.day||!_VP.time){alert('Tap a day, then tap a time.');return;}
+  _ENQ.date=_VP.day;_ENQ.time=_VP.time;closeVisitPicker();_enqWhenLabel();
+}
+function _vpGridStart(){
+  var m=_VP.month,d=new Date(m.getFullYear(),m.getMonth(),1);
+  var wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);return d;
+}
+async function _vpLoad(){
+  var gs=_vpGridStart(),ge=new Date(gs.getTime());ge.setDate(ge.getDate()+42);
+  var key=_ymd(_VP.month);
+  if(!_VP.events[key]){
+    _vpRender(true);
+    try{
+      var r=await apiFetch(SUPA_URL+'/cal/events?from='+encodeURIComponent(gs.toISOString())+'&to='+encodeURIComponent(ge.toISOString()),{headers:authHdr()});
+      if(!r.ok)throw new Error('cal '+r.status);
+      var d=await r.json();_VP.events[key]=d.events||[];_VP.fail=false;
+    }catch(e){
+      _VP.fail=true;
+      _VP.events[key]=(S.estimates||[]).filter(function(q){return q.visitAt;}).map(function(q){return {summary:'Visit - '+(q.clientName||''),start:q.visitAt+':00',end:new Date(new Date(q.visitAt+':00Z').getTime()+3600000).toISOString().slice(0,16)+':00',allDay:false};});
+    }
+  }
+  _vpRender(false);
+}
+function _vpDayEvents(ymd){
+  var out=[],all=_VP.events[_ymd(_VP.month)]||[];
+  all.forEach(function(e){
+    if(!e.start)return;
+    if(e.allDay){if(e.start<=ymd&&ymd<e.end)out.push(e);}
+    else if(e.start.slice(0,10)===ymd)out.push(e);
+  });
+  return out;
+}
+function vpMonth(n){_VP.month=new Date(_VP.month.getFullYear(),_VP.month.getMonth()+n,1);_vpLoad();}
+function vpDay(ymd){
+  _VP.day=ymd;_VP.time='';
+  var d=new Date(ymd+'T12:00:00');
+  if(d.getMonth()!==_VP.month.getMonth()||d.getFullYear()!==_VP.month.getFullYear()){_VP.month=new Date(d.getFullYear(),d.getMonth(),1);_vpLoad();}
+  else{_vpRender(false);setTimeout(function(){var e=document.getElementById('vp-dayh');if(e)e.scrollIntoView({block:'start'});},50);}
+}
+function vpTime(t){_VP.time=t;_vpRender(false);}
+function _vpRender(loading){
+  var body=document.getElementById('vp-body');if(!body)return;
+  var top=body.scrollTop;
+  var gs=_vpGridStart(),today=_ymd(new Date()),m=_VP.month.getMonth();
+  var all=_VP.events[_ymd(_VP.month)]||[];
+  var busyDays={};all.forEach(function(e){if(!e.start)return;if(e.allDay){var c=new Date(e.start+'T12:00:00'),end=new Date(e.end+'T12:00:00');while(c<end){busyDays[_ymd(c)]=1;c.setDate(c.getDate()+1);}}else busyDays[e.start.slice(0,10)]=1;});
+  var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><button class="bs" onclick="vpMonth(-1)" style="padding:8px 14px;">&#8249;</button><div style="font-weight:700;font-size:15px;">'+_VP.month.toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</div><button class="bs" onclick="vpMonth(1)" style="padding:8px 14px;">&#8250;</button></div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;color:#888;margin-bottom:4px;">'+['Mo','Tu','We','Th','Fr','Sa','Su'].map(function(x){return '<div>'+x+'</div>';}).join('')+'</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+  for(var i=0;i<42;i++){
+    var d=new Date(gs.getTime());d.setDate(d.getDate()+i);var y=_ymd(d),sel=y===_VP.day,out=d.getMonth()!==m;
+    h+='<div onclick="vpDay(\''+y+'\')" style="height:42px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:14px;'+(sel?'background:#276749;color:#fff;font-weight:700;':(y===today?'border:1.5px solid #276749;':'background:#f5f5f3;'))+(out&&!sel?'opacity:0.45;':'')+'">'+d.getDate()+(busyDays[y]?'<span style="width:5px;height:5px;border-radius:50%;margin-top:2px;background:'+(sel?'#fff':'#ea580c')+';"></span>':'')+'</div>';
+  }
+  h+='</div>';
+  if(loading)h+='<div style="text-align:center;color:#888;font-size:13px;padding:14px 0;">Loading your diary...</div>';
+  else{
+    if(_VP.fail)h+='<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;font-size:12px;color:#8a6d00;margin-top:10px;">Google Calendar is not connected, so only visits made in APL are shown.</div>';
+    var evs=_vpDayEvents(_VP.day);
+    h+='<div id="vp-dayh" style="font-weight:700;scroll-margin-top:80px;font-size:14px;margin:14px 0 6px;">'+_vpNiceDay(_VP.day)+'</div>';
+    evs.filter(function(e){return e.allDay;}).forEach(function(e){h+='<div style="background:#fef3c7;border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:4px;">All day: '+_vpEsc(e.summary)+'</div>';});
+    var timed=evs.filter(function(e){return !e.allDay;}).map(function(e){var s=_vpMins(e.start),en=e.end&&e.end.slice(0,10)===e.start.slice(0,10)?_vpMins(e.end):1440;return {e:e,s:s,en:Math.max(en,s+15)};});
+    var clash=[];
+    if(_VP.time){var tm=parseInt(_VP.time.slice(0,2),10)*60+parseInt(_VP.time.slice(3,5),10);timed.forEach(function(x){if(x.s<tm+60&&x.en>tm)clash.push(x.e.summary);});}
+    if(_VP.time)h+='<div style="font-size:12px;margin-bottom:6px;color:'+(clash.length?'#c62828':'#276749')+';">'+(clash.length?'Clashes with: '+_vpEsc(clash.join(', ')):'Free at '+_VP.time)+'</div>';
+    for(var mn=7*60;mn<19*60;mn+=30){
+      var t=_pad2(Math.floor(mn/60))+':'+_pad2(mn%60),starts=timed.filter(function(x){return x.s>=mn&&x.s<mn+30;}),busy=timed.some(function(x){return x.s<mn+30&&x.en>mn;}),sel2=_VP.time===t;
+      h+='<div onclick="vpTime(\''+t+'\')" style="display:flex;gap:10px;align-items:center;min-height:40px;padding:4px 10px;border-radius:6px;margin-bottom:2px;cursor:pointer;font-size:13px;'+(sel2?'background:#276749;color:#fff;':(busy?'background:#ffedd5;':'background:#f5f5f3;'))+'"><div style="width:44px;font-weight:600;">'+t+'</div><div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(starts.length?starts.map(function(x){return _vpEsc(x.e.summary)+' ('+x.e.start.slice(11,16)+'-'+(x.e.end?x.e.end.slice(11,16):'')+')';}).join(', '):(busy?'<span style="opacity:0.6;">busy</span>':''))+'</div></div>';
+    }
+  }
+  body.innerHTML=h;body.scrollTop=top;
+}
 async function saveEnquiry(){
+  if(_ENQ.busy)return;
   var g=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
-  var name=g('ne2-name'),mobile=g('ne2-mobile'),email=g('ne2-email'),addr=g('ne2-addr'),post=g('ne2-post').toUpperCase(),vd=g('ne2-date'),vt=g('ne2-time'),notes=g('ne2-notes');
+  var name=g('ne2-name'),mobile=g('ne2-mobile'),mobile2=g('ne2-mobile2'),email=g('ne2-email'),a1=g('ne2-a1'),a2=g('ne2-a2'),city=g('ne2-city'),county=g('ne2-county'),post=g('ne2-post').toUpperCase(),notes=g('ne2-notes');
   var miss=[];
   if(!name)miss.push('name');
   if(!mobile)miss.push('mobile number');
   if(!email||email.indexOf('@')<1)miss.push('email');
-  if(!addr)miss.push('address');
+  if(!a1)miss.push('address line 1');
+  if(!city)miss.push('town / city');
   if(!post)miss.push('postcode');
-  if(!vd)miss.push('visit date');
-  if(!vt)miss.push('visit time');
+  if(!_ENQ.date||!_ENQ.time)miss.push('visit date and time');
   if(miss.length){alert('Please add: '+miss.join(', ')+'.');return;}
-  var sa=addr+', '+post;
+  _ENQ.busy=true;var btn=document.getElementById('ne2-save');if(btn){btn.disabled=true;btn.textContent='Creating...';}
+  var sa=[a1,a2,city,county,post].filter(Boolean).join(', ');
   var cl=(S.clients||[]).find(function(c){return c.name===name;});
-  if(!cl){S.clients.push({name:name,email:email,mobile:mobile,phone:'',serviceAddress:sa,address:sa,postcode:post,city:''});}
+  if(!cl){S.clients.push({name:name,email:email,mobile:mobile,phone:mobile2,serviceAddress:sa,address:sa,postcode:post,city:city});}
   else{
     if(!cl.email)cl.email=email;
     if(!cl.mobile)cl.mobile=mobile;
+    if(!cl.phone&&mobile2)cl.phone=mobile2;
     if(!cl.serviceAddress){cl.serviceAddress=sa;if(!cl.address)cl.address=sa;}
   }
   var today=new Date().toISOString().split('T')[0];
   var exp=new Date(Date.now()+90*24*60*60*1000).toISOString().split('T')[0];
   var ne={ref:'aplquote'+S.nextQ,date:new Date().toISOString(),dateInput:today,expiryDate:exp,
-    clientName:name,address:sa,serviceAddress:sa,phone:'',mobile:mobile,email:email,
+    clientName:name,address:sa,serviceAddress:sa,phone:mobile2,mobile:mobile,email:email,
     lineItems:[],notes:'',privateNotes:notes?('Directions: '+notes):'',photos:[],
     vat:S.co.defaultVat||false,status:'PENDING',isNew:true,
     markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
     depositVal:0,depositType:'pct',
-    quoteFooter:S.co.quoteFooter||'',visitAt:vd+'T'+vt};
+    quoteFooter:S.co.quoteFooter||'',visitAt:_ENQ.date+'T'+_ENQ.time};
   S.ne=ne;S.billingDiff=false;
   clearModals();
   var ok=await saveEst();
-  if(ok!==false)toast('Quote '+ne.ref+' created for '+name);
+  _ENQ.busy=false;
+  if(ok===false)return;
+  var calOk=false;
+  try{
+    var desc=['Mobile: '+mobile].concat(mobile2?['Phone 2: '+mobile2]:[],['Email: '+email],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
+    var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:60,location:sa,description:desc})});
+    if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;saveData();}calOk=true;}
+  }catch(e){}
+  if(calOk)toast('Quote '+ne.ref+' created and visit added to your calendar');
+  else toast('Quote '+ne.ref+' created, but the calendar entry failed - add the visit to Google Calendar yourself','#b45309');
 }
 
 function toggleBillingDiff(){
