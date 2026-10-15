@@ -422,12 +422,14 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
   .modal-tab{flex:1 1 0;min-width:0;padding:10px 2px !important;font-size:12px !important;text-align:center;white-space:normal !important;line-height:1.25;}
 }
 
-.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.qa-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
 .qa-grid button{padding:14px 8px !important;}
 @media(max-width:700px){
   .qa-grid{grid-template-columns:repeat(3,1fr);gap:8px;}
   .qa-grid button{padding:12px 4px !important;font-size:13px !important;}
   .qa-grid .qa-enq{grid-column:1/-1;flex-direction:row !important;justify-content:center;padding:16px 12px !important;font-size:15px !important;}
+  .qa-grid .qa-cal{grid-column:1/-1;flex-direction:row !important;justify-content:center;padding:12px !important;font-size:15px !important;}
+  .qa-grid .qa-cal span{height:auto !important;display:flex !important;}
 }
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
@@ -1648,6 +1650,9 @@ function rDash(m){
       <button class="qa-enq" onclick="openNewEnquiry()" style="background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border:none;border-radius:12px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(194,65,12,0.25);">
         <span style="display:block;height:34px;"><svg width='28' height='34' viewBox='0 0 24 24' fill='#111' stroke='#111' stroke-width='1.5' stroke-linejoin='round'><path d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/></svg></span>New Enquiry
       </button>
+      <button class="qa-cal" onclick="openCalendar()" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border:none;border-radius:12px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(15,118,110,0.25);">
+        <span style="display:block;height:34px;"><svg width='30' height='34' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4.5' width='18' height='16.5' rx='2.5'/><path d='M3 10h18M8 2.5v4M16 2.5v4'/><circle cx='8.5' cy='14.5' r='1' fill='#fff'/><circle cx='12' cy='14.5' r='1' fill='#fff'/><circle cx='15.5' cy='14.5' r='1' fill='#fff'/></svg></span>Calendar
+      </button>
       <button onclick="openNE()" style="background:linear-gradient(135deg,#276749,#38a169);color:#fff;border:none;border-radius:12px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(39,103,73,0.25);">
         <span style="font-size:28px;">✏️</span>New Quote
       </button>
@@ -2224,7 +2229,7 @@ function _enqWhenLabel(){
   if(_ENQ.date&&_ENQ.time){b.textContent=new Date(_ENQ.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '+_ENQ.time;b.style.color='#111';}
   else{b.textContent='Choose date and time';b.style.color='#888';}
 }
-function openNewEnquiry(){
+function openNewEnquiry(preDate,preTime){
   clearModals();
   _ENQ={date:'',time:'',busy:false};_VP.day='';_VP.time='';
   var f=function(id,label,ph,extra){return '<div class="fl"><label>'+label+'</label><input class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="off" '+(extra||'')+'></div>';};
@@ -2244,6 +2249,7 @@ function openNewEnquiry(){
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
   document.body.appendChild(ov);
+  if(preDate){_VP.day=preDate;if(preTime){_ENQ.date=preDate;_ENQ.time=preTime;_VP.time=preTime;_enqWhenLabel();}}
 }
 function openVisitPicker(){
   var base=_VP.day?new Date(_VP.day+'T12:00:00'):new Date();
@@ -2308,7 +2314,7 @@ function _vpRender(loading){
   h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
   for(var i=0;i<42;i++){
     var d=new Date(gs.getTime());d.setDate(d.getDate()+i);var y=_ymd(d),sel=y===_VP.day,out=d.getMonth()!==m;
-    h+='<div onclick="vpDay(\''+y+'\')" style="height:42px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:14px;'+(sel?'background:#276749;color:#fff;font-weight:700;':(y===today?'border:1.5px solid #276749;':'background:#f5f5f3;'))+(out&&!sel?'opacity:0.45;':'')+'">'+d.getDate()+(busyDays[y]?'<span style="width:5px;height:5px;border-radius:50%;margin-top:2px;background:'+(sel?'#fff':'#ea580c')+';"></span>':'')+'</div>';
+    h+='<div onclick="vpDay(\''+y+'\')" style="height:42px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:14px;'+(sel?'background:#276749;color:#fff;font-weight:700;':(y===today?'border:1.5px solid #276749;':'background:#f5f5f3;'))+(out&&!sel?'opacity:0.45;':'')+'">'+d.getDate()+(busyDays[y]||_holOf(y)?'<span style="display:flex;gap:3px;margin-top:2px;">'+(busyDays[y]?'<span style="width:5px;height:5px;border-radius:50%;background:'+(sel?'#fff':'#ea580c')+';"></span>':'')+(_holOf(y)?'<span style="width:5px;height:5px;border-radius:50%;background:'+(sel?'#fecaca':(_holOf(y).bank?'#c62828':'#9ca3af'))+';"></span>':'')+'</span>':'')+'</div>';
   }
   h+='</div>';
   if(loading)h+='<div style="text-align:center;color:#888;font-size:13px;padding:14px 0;">Loading your diary...</div>';
@@ -2316,6 +2322,7 @@ function _vpRender(loading){
     if(_VP.fail)h+='<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;font-size:12px;color:#8a6d00;margin-top:10px;">Google Calendar is not connected, so only visits made in APL are shown.</div>';
     var evs=_vpDayEvents(_VP.day);
     h+='<div id="vp-dayh" style="font-weight:700;scroll-margin-top:80px;font-size:14px;margin:14px 0 6px;">'+_vpNiceDay(_VP.day)+'</div>';
+    var hol=_holOf(_VP.day);if(hol)h+='<div style="background:'+(hol.bank?'#fee2e2':'#f3f4f6')+';color:'+(hol.bank?'#991b1b':'#374151')+';border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;margin-bottom:4px;">'+(hol.bank?'Bank holiday: ':'')+_vpEsc(hol.name)+'</div>';
     evs.filter(function(e){return e.allDay;}).forEach(function(e){h+='<div style="background:#fef3c7;border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:4px;">All day: '+_vpEsc(e.summary)+'</div>';});
     var timed=evs.filter(function(e){return !e.allDay;}).map(function(e){var s=_vpMins(e.start),en=e.end&&e.end.slice(0,10)===e.start.slice(0,10)?_vpMins(e.end):1440;return {e:e,s:s,en:Math.max(en,s+15)};});
     var clash=[];
@@ -2371,10 +2378,359 @@ async function saveEnquiry(){
     var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:60,location:sa,description:desc})});
     if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;saveData();}calOk=true;}
   }catch(e){}
+  if(typeof _CAL!=='undefined'&&_CAL.open)calRefresh();
   if(calOk)toast('Quote '+ne.ref+' created and visit added to your calendar');
   else toast('Quote '+ne.ref+' created, but the calendar entry failed - add the visit to Google Calendar yourself','#b45309');
 }
 
+var _HOL={};
+function _easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),t=h+l-7*m+114;return new Date(y,Math.floor(t/31)-1,(t%31)+1,12);}
+function _addD(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
+function _nthDow(y,m,dow,n){
+  if(n>0){var d=new Date(y,m,1,12);while(d.getDay()!==dow)d.setDate(d.getDate()+1);d.setDate(d.getDate()+7*(n-1));return d;}
+  var e=new Date(y,m+1,0,12);while(e.getDay()!==dow)e.setDate(e.getDate()-1);return e;
+}
+function _holYear(y){
+  if(_HOL[y])return _HOL[y];
+  var h={};
+  function add(d,name,bank){var k=_ymd(d);if(h[k]){h[k].name+=' / '+name;h[k].bank=h[k].bank||!!bank;}else h[k]={name:name,bank:!!bank};}
+  var ny=new Date(y,0,1,12),nyd=ny.getDay();
+  if(nyd===6){add(ny,"New Year's Day",false);add(_addD(ny,2),"New Year's Day (bank holiday)",true);}
+  else if(nyd===0){add(ny,"New Year's Day",false);add(_addD(ny,1),"New Year's Day (bank holiday)",true);}
+  else add(ny,"New Year's Day",true);
+  var ea=_easter(y);
+  add(_addD(ea,-2),'Good Friday',true);
+  add(ea,'Easter Sunday',false);
+  add(_addD(ea,1),'Easter Monday',true);
+  add(_nthDow(y,4,1,1),'Early May bank holiday',true);
+  add(_nthDow(y,4,1,-1),'Spring bank holiday',true);
+  add(_nthDow(y,7,1,-1),'Summer bank holiday',true);
+  var xm=new Date(y,11,25,12),xd=xm.getDay(),bx=new Date(y,11,26,12),bd=bx.getDay();
+  if(xd===6||xd===0){add(xm,'Christmas Day',false);add(_addD(xm,xd===6?2:2),'Christmas Day (bank holiday)',true);}
+  else add(xm,'Christmas Day',true);
+  if(bd===6||bd===0){add(bx,'Boxing Day',false);add(_addD(bx,bd===6?2:2),'Boxing Day (bank holiday)',true);}
+  else add(bx,'Boxing Day',true);
+  add(new Date(y,11,24,12),'Christmas Eve',false);
+  add(new Date(y,11,31,12),"New Year's Eve",false);
+  add(new Date(y,9,31,12),'Halloween',false);
+  add(new Date(y,10,5,12),'Bonfire Night',false);
+  add(_nthDow(y,10,0,2),'Remembrance Sunday',false);
+  add(_addD(ea,-21),"Mother's Day",false);
+  add(_nthDow(y,5,0,3),"Father's Day",false);
+  add(_nthDow(y,2,0,-1),'Clocks go forward',false);
+  add(_nthDow(y,9,0,-1),'Clocks go back',false);
+  _HOL[y]=h;return h;
+}
+function _holOf(ymd){return _holYear(parseInt(ymd.slice(0,4),10))[ymd]||null;}
+
+var _CAL={open:false,view:'',anchor:'',mini:null,days:{},seen:{},loaded:{},fail:false,loading:0,miniOpen:false,sched:42};
+var _CALC=['#ea580c','#1976d2','#7c3aed','#0f766e'];
+function _calWide(){return window.innerWidth>=700;}
+function _calCss(){
+  if(document.getElementById('cal-css'))return;
+  var st=document.createElement('style');st.id='cal-css';
+  st.textContent=[
+  '#cal-ov{position:fixed;inset:0;z-index:90;background:#fff;display:flex;flex-direction:column;font-family:inherit;color:#111;padding-top:env(safe-area-inset-top,0px);}',
+  '#cal-ov *{box-sizing:border-box;}',
+  '.cal-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e5e5e0;flex-wrap:wrap;}',
+  '.cal-top .cal-title{font-size:18px;font-weight:700;flex:1;min-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}',
+  '.cal-btn{border:1px solid #ddd;background:#fff;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer;color:#111;font-weight:600;}',
+  '.cal-btn.on{background:#276749;color:#fff;border-color:#276749;}',
+  '.cal-seg{display:flex;border:1px solid #ddd;border-radius:8px;overflow:hidden;}',
+  '.cal-seg button{border:none;background:#fff;padding:8px 12px;font-size:14px;cursor:pointer;color:#111;font-weight:600;border-left:1px solid #ddd;}',
+  '.cal-seg button:first-child{border-left:none;}',
+  '.cal-seg button.on{background:#276749;color:#fff;}',
+  '.cal-main{flex:1;display:flex;min-height:0;}',
+  '.cal-side{width:250px;border-right:1px solid #e5e5e0;padding:12px;overflow:auto;flex:none;}',
+  '.cal-content{flex:1;min-width:0;overflow:auto;position:relative;-webkit-overflow-scrolling:touch;}',
+  '.cal-mini-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:700;font-size:14px;}',
+  '.cal-mini-h button{border:none;background:none;font-size:20px;cursor:pointer;padding:2px 10px;color:#111;}',
+  '.cal-mg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;}',
+  '.cal-mg .dn{font-size:10px;color:#888;padding:2px 0;}',
+  '.cal-mg .d{height:32px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;cursor:pointer;line-height:1;}',
+  '.cal-mg .d.out{color:#aaa;}',
+  '.cal-mg .d.hol{color:#c62828;font-weight:700;}',
+  '.cal-mg .d.today{background:#276749;color:#fff;font-weight:700;}',
+  '.cal-mg .d.sel{outline:2px solid #276749;}',
+  '.cal-mg .dot{width:4px;height:4px;border-radius:50%;margin-top:2px;}',
+  '.cal-fail{background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 12px;font-size:12px;color:#8a6d00;}',
+  '.cal-month{display:grid;grid-template-columns:repeat(7,1fr);height:100%;grid-auto-rows:1fr;}',
+  '.cal-mhd{padding:6px 4px;text-align:center;font-size:12px;color:#666;font-weight:600;border-bottom:1px solid #e5e5e0;}',
+  '.cal-cell{border-right:1px solid #eee;border-bottom:1px solid #eee;padding:3px;min-width:0;min-height:0;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;gap:2px;}',
+  '.cal-cell.out{background:#fafaf8;}',
+  '.cal-cell .n{font-size:12px;font-weight:600;align-self:flex-start;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex:none;}',
+  '.cal-cell .n.today{background:#276749;color:#fff;}',
+  '.cal-cell .hl{font-size:10px;line-height:1.2;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+  '.cal-cell .hl.bank{color:#c62828;font-weight:700;}',
+  '.cal-chip{font-size:11px;line-height:1.25;border-radius:4px;padding:1px 4px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;flex:none;}',
+  '.cal-chip.timed{background:transparent !important;color:#111;}',
+  '.cal-chip.timed b{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;}',
+  '.cal-more{font-size:10px;color:#555;font-weight:600;}',
+  '.cal-tg{position:relative;display:flex;min-width:0;}',
+  '.cal-hd{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #e5e5e0;display:flex;}',
+  '.cal-hd .g{width:46px;flex:none;}',
+  '.cal-hd .c{flex:1;text-align:center;padding:6px 2px;min-width:0;border-left:1px solid #eee;cursor:pointer;}',
+  '.cal-hd .c .w{font-size:11px;color:#666;text-transform:uppercase;}',
+  '.cal-hd .c .nn{font-size:20px;font-weight:600;width:36px;height:36px;margin:2px auto 0;display:flex;align-items:center;justify-content:center;border-radius:50%;}',
+  '.cal-hd .c .nn.today{background:#276749;color:#fff;}',
+  '.cal-hd .c .hh{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+  '.cal-hd .c .hh.bank{color:#c62828;font-weight:700;}',
+  '.cal-ad{display:flex;border-bottom:1px solid #e5e5e0;background:#fff;}',
+  '.cal-ad .g{width:46px;flex:none;font-size:10px;color:#888;padding:4px;}',
+  '.cal-ad .c{flex:1;min-width:0;border-left:1px solid #eee;padding:2px;display:flex;flex-direction:column;gap:2px;}',
+  '.cal-hrs{width:46px;flex:none;}',
+  '.cal-hrs div{height:var(--hh);font-size:10px;color:#888;text-align:right;padding-right:6px;transform:translateY(-6px);}',
+  '.cal-col{flex:1;position:relative;border-left:1px solid #eee;min-width:0;}',
+  '.cal-col .ln{position:absolute;left:0;right:0;border-top:1px solid #eee;}',
+  '.cal-col .ln.half{border-top:1px dotted #f0f0ed;}',
+  '.cal-ev{position:absolute;border-radius:5px;color:#fff;font-size:11px;line-height:1.25;padding:2px 4px;overflow:hidden;cursor:pointer;border:1px solid #fff;}',
+  '.cal-ev b{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+  '.cal-now{position:absolute;left:0;right:0;border-top:2px solid #e11d48;z-index:3;pointer-events:none;}',
+  '.cal-sched{padding:0 0 90px;}',
+  '.cal-sd{display:flex;gap:12px;padding:10px 14px;border-bottom:1px solid #eee;}',
+  '.cal-sd .dd{width:52px;flex:none;text-align:center;}',
+  '.cal-sd .dd .a{font-size:11px;color:#666;text-transform:uppercase;}',
+  '.cal-sd .dd .b{font-size:22px;font-weight:600;width:40px;height:40px;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;}',
+  '.cal-sd .dd .b.today{background:#276749;color:#fff;}',
+  '.cal-sd .ee{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}',
+  '.cal-row{display:flex;gap:10px;align-items:center;border-radius:8px;padding:8px 10px;color:#fff;cursor:pointer;}',
+  '.cal-row .t{font-size:12px;opacity:.95;flex:none;width:92px;}',
+  '.cal-row .s{font-weight:600;font-size:14px;min-width:0;}',
+  '.cal-row .l{font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+  '.cal-hrow{font-size:13px;color:#555;padding:4px 0;}',
+  '.cal-hrow.bank{color:#c62828;font-weight:700;}',
+  '.cal-fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border:none;font-size:30px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;z-index:91;}',
+  '@media(max-width:699px){.cal-top .cal-title{font-size:17px;}.cal-top{padding:6px 8px;}.cal-btn,.cal-seg button{padding:7px 9px;font-size:13px;}.cal-chip{font-size:9.5px;padding:0 2px;}.cal-cell .hl{font-size:8.5px;}.cal-hd .g,.cal-ad .g,.cal-hrs{width:34px;}.cal-hd .c .nn{font-size:17px;width:30px;height:30px;}.cal-minip{padding:6px 10px 8px;border-bottom:1px solid #e5e5e0;}}'
+  ].join('\n');
+  document.head.appendChild(st);
+}
+function _calEvColor(e){
+  if(e.cal>0)return _CALC[Math.min(e.cal,_CALC.length-1)];
+  return (/^site visit/i.test(e.summary||'')||/APL quote /.test(e.description||''))?_CALC[0]:_CALC[1];
+}
+function _calAddEvents(list){
+  (list||[]).forEach(function(e){
+    if(!e.start)return;
+    var key=(e.cal||0)+'|'+e.id+'|'+e.start;
+    if(_CAL.seen[key])return;_CAL.seen[key]=1;
+    if(e.allDay){
+      var c=new Date(e.start+'T12:00:00'),en=new Date((e.end||e.start)+'T12:00:00');
+      if(en<=c)en=_addD(c,1);
+      while(c<en){var k=_ymd(c);(_CAL.days[k]=_CAL.days[k]||[]).push(e);c=_addD(c,1);}
+    }else{var k2=e.start.slice(0,10);(_CAL.days[k2]=_CAL.days[k2]||[]).push(e);}
+  });
+}
+function _calDay(ymd){return _CAL.days[ymd]||[];}
+async function _calLoadMonth(y,m){
+  var key=y+'-'+_pad2(m+1);
+  if(_CAL.loaded[key])return;
+  _CAL.loaded[key]=1;_CAL.loading++;
+  var a=new Date(y,m,1),b=new Date(y,m+1,1);
+  try{
+    var r=await apiFetch(SUPA_URL+'/cal/events?from='+encodeURIComponent(a.toISOString())+'&to='+encodeURIComponent(b.toISOString()),{headers:authHdr()});
+    if(!r.ok)throw new Error('cal '+r.status);
+    var d=await r.json();_calAddEvents(d.events||[]);
+  }catch(e){
+    _CAL.fail=true;
+    _calAddEvents((S.estimates||[]).filter(function(q){return q.visitAt&&q.visitAt.slice(0,7)===key;}).map(function(q){return {id:'apl'+q.ref,cal:0,summary:'Site visit - '+(q.clientName||''),start:q.visitAt+':00',end:new Date(new Date(q.visitAt+':00Z').getTime()+3600000).toISOString().slice(0,16)+':00',allDay:false,location:q.serviceAddress||'',description:'APL quote '+q.ref};}));
+  }
+  _CAL.loading--;
+}
+function _calRange(){
+  var a=new Date(_CAL.anchor+'T12:00:00'),f,t;
+  var v=_CAL.view;
+  if(v==='month'){var g=_calMonthStart(a);f=g;t=_addD(g,41);}
+  else if(v==='week'){f=_calWeekStart(a);t=_addD(f,_calWide()?6:2);}
+  else if(v==='day'){f=a;t=a;}
+  else{f=a;t=_addD(a,_CAL.sched);}
+  var mm=_CAL.mini||new Date(a.getFullYear(),a.getMonth(),1);
+  var g2=_calMonthStart(mm);
+  return [f<g2?f:g2, t>_addD(g2,41)?t:_addD(g2,41)];
+}
+function _calWeekStart(d){if(!_calWide())return new Date(d.getTime());var x=new Date(d.getTime());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function _calMonthStart(d){var x=new Date(d.getFullYear(),d.getMonth(),1,12);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+async function _calEnsure(){
+  var r=_calRange(),c=new Date(r[0].getFullYear(),r[0].getMonth(),1),end=r[1],ps=[];
+  while(c<=end){ps.push(_calLoadMonth(c.getFullYear(),c.getMonth()));c=new Date(c.getFullYear(),c.getMonth()+1,1);}
+  _calRender();
+  await Promise.all(ps);
+  _calRender();
+}
+function openCalendar(){
+  clearModals();_calCss();
+  var old=document.getElementById('cal-ov');if(old)old.remove();
+  var v='';try{v=localStorage.getItem('apl_cal_view')||'';}catch(e){}
+  var okv=_calWide()?['schedule','day','week','month']:['schedule','day','week','month'];
+  if(okv.indexOf(v)<0)v=_calWide()?'week':'schedule';
+  _CAL={open:true,view:v,anchor:_ymd(new Date()),mini:null,days:{},seen:{},loaded:{},fail:false,loading:0,miniOpen:false,sched:42,fresh:true};
+  var a=new Date(_CAL.anchor+'T12:00:00');_CAL.mini=new Date(a.getFullYear(),a.getMonth(),1,12);
+  var ov=document.createElement('div');ov.id='cal-ov';document.body.appendChild(ov);
+  window.removeEventListener('resize',_calResize);window.addEventListener('resize',_calResize);
+  _calEnsure();
+}
+var _calRT=null;
+function _calResize(){if(!_CAL.open)return;clearTimeout(_calRT);_calRT=setTimeout(function(){_calEnsure();},150);}
+function closeCalendar(){_CAL.open=false;var o=document.getElementById('cal-ov');if(o)o.remove();window.removeEventListener('resize',_calResize);}
+function calRefresh(){_CAL.days={};_CAL.seen={};_CAL.loaded={};_CAL.fail=false;_calEnsure();}
+function calView(v){_CAL.view=v;try{localStorage.setItem('apl_cal_view',v);}catch(e){}_CAL.sched=42;_CAL.fresh=true;var a=new Date(_CAL.anchor+'T12:00:00');_CAL.mini=new Date(a.getFullYear(),a.getMonth(),1,12);_calEnsure();}
+function calToday(){_CAL.fresh=true;_CAL.anchor=_ymd(new Date());var a=new Date(_CAL.anchor+'T12:00:00');_CAL.mini=new Date(a.getFullYear(),a.getMonth(),1,12);_calEnsure();}
+function calGo(ymd,view){
+  _CAL.fresh=true;_CAL.anchor=ymd;var a=new Date(ymd+'T12:00:00');_CAL.mini=new Date(a.getFullYear(),a.getMonth(),1,12);
+  if(view){_CAL.view=view;try{localStorage.setItem('apl_cal_view',view);}catch(e){}}
+  _CAL.miniOpen=false;_calEnsure();
+}
+function calStep(n){
+  var a=new Date(_CAL.anchor+'T12:00:00'),v=_CAL.view;
+  if(v==='month')a=new Date(a.getFullYear(),a.getMonth()+n,1,12);
+  else if(v==='week')a=_addD(a,n*(_calWide()?7:3));
+  else if(v==='day')a=_addD(a,n);
+  else a=_addD(a,n*28);
+  _CAL.fresh=true;_CAL.anchor=_ymd(a);_CAL.mini=new Date(a.getFullYear(),a.getMonth(),1,12);_calEnsure();
+}
+function calMini(n){_CAL.mini=new Date(_CAL.mini.getFullYear(),_CAL.mini.getMonth()+n,1,12);_calEnsure();}
+function calToggleMini(){_CAL.miniOpen=!_CAL.miniOpen;_calRender();}
+function calMore(){_CAL.sched+=42;_calEnsure();}
+function calNew(ymd,time){if(ymd&&ymd<_ymd(new Date()))ymd='';openNewEnquiry(ymd,time);}
+function _calTitle(){
+  var a=new Date(_CAL.anchor+'T12:00:00'),v=_CAL.view;
+  if(v==='day')return a.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  if(v==='week'){var s=_calWeekStart(a),e=_addD(s,_calWide()?6:2);return s.getDate()+(s.getMonth()!==e.getMonth()?' '+s.toLocaleDateString('en-GB',{month:'short'}):'')+' - '+e.getDate()+' '+e.toLocaleDateString('en-GB',{month:'short',year:'numeric'});}
+  return a.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
+function _calMiniHtml(){
+  var m=_CAL.mini,gs=_calMonthStart(m),today=_ymd(new Date()),sel=_CAL.anchor,h='';
+  h+='<div class="cal-mini-h"><button onclick="calMini(-1)">&#8249;</button><span>'+m.toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</span><button onclick="calMini(1)">&#8250;</button></div>';
+  h+='<div class="cal-mg">'+['M','T','W','T','F','S','S'].map(function(x){return '<div class="dn">'+x+'</div>';}).join('');
+  for(var i=0;i<42;i++){
+    var d=_addD(gs,i),y=_ymd(d),ho=_holOf(y),evs=_calDay(y);
+    var dot='';if(evs.length)dot='<span class="dot" style="background:'+_calEvColor(evs[0])+';"></span>';
+    h+='<div class="d'+(d.getMonth()!==m.getMonth()?' out':'')+(ho&&ho.bank?' hol':'')+(y===today?' today':'')+(y===sel&&y!==today?' sel':'')+'" onclick="calGo(\''+y+'\')">'+d.getDate()+dot+'</div>';
+  }
+  return h+'</div>';
+}
+function _calChip(e,wide){
+  var c=_calEvColor(e),t=e.allDay?'':e.start.slice(11,16)+' ';
+  var k=_calEvKey(e);
+  if(e.allDay)return '<div class="cal-chip" style="background:'+c+';" onclick="event.stopPropagation();calEvent(\''+k+'\')">'+_vpEsc(e.summary)+'</div>';
+  return '<div class="cal-chip timed" onclick="event.stopPropagation();calEvent(\''+k+'\')"><b style="background:'+c+';"></b>'+t+_vpEsc(e.summary)+'</div>';
+}
+var _calKeys={},_calKn=0;
+function _calEvKey(e){var k='e'+(_calKn++);_calKeys[k]=e;return k;}
+function _calHolHtml(ymd,cls){var ho=_holOf(ymd);return ho?'<div class="'+cls+(ho.bank?' bank':'')+'">'+_vpEsc(ho.name)+'</div>':'';}
+function _calMonthHtml(){
+  var a=new Date(_CAL.anchor+'T12:00:00'),gs=_calMonthStart(a),today=_ymd(new Date()),wide=_calWide();
+  var h='<div style="display:flex;flex-direction:column;height:100%;min-height:420px;"><div style="display:grid;grid-template-columns:repeat(7,1fr);">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(x){return '<div class="cal-mhd">'+x+'</div>';}).join('')+'</div><div class="cal-month" style="flex:1;">';
+  var max=wide?3:2;
+  for(var i=0;i<42;i++){
+    var d=_addD(gs,i),y=_ymd(d),evs=_calDay(y).slice().sort(function(p,q){return (q.allDay?1:0)-(p.allDay?1:0)||(p.start<q.start?-1:1);});
+    h+='<div class="cal-cell'+(d.getMonth()!==a.getMonth()?' out':'')+'" onclick="calGo(\''+y+'\',\'day\')"><div class="n'+(y===today?' today':'')+'">'+d.getDate()+'</div>'+_calHolHtml(y,'hl');
+    evs.slice(0,max).forEach(function(e){h+=_calChip(e,wide);});
+    if(evs.length>max)h+='<div class="cal-more">+'+(evs.length-max)+' more</div>';
+    h+='</div>';
+  }
+  return h+'</div></div>';
+}
+function _calLayout(items){
+  items.sort(function(a,b){return a.s-b.s||b.en-a.en;});
+  var cols=[],groups=[],cur=null;
+  items.forEach(function(it){
+    if(!cur||it.s>=cur.end){cur={end:it.en,items:[],ncol:0};groups.push(cur);}
+    var placed=false;
+    for(var c=0;c<cur.ncol;c++){if(cur.cols[c]<=it.s){it.col=c;cur.cols[c]=it.en;placed=true;break;}}
+    if(!placed){cur.cols=cur.cols||[];it.col=cur.ncol;cur.cols[cur.ncol]=it.en;cur.ncol++;}
+    cur.items.push(it);cur.end=Math.max(cur.end,it.en);
+  });
+  groups.forEach(function(g){g.items.forEach(function(it){it.n=g.ncol;});});
+  return items;
+}
+function _calGridHtml(days){
+  var today=_ymd(new Date()),HH=_calWide()?52:46,h='';
+  h+='<div class="cal-hd"><div class="g"></div>'+days.map(function(d){var y=_ymd(d),ho=_holOf(y);return '<div class="c" onclick="calGo(\''+y+'\',\'day\')"><div class="w">'+d.toLocaleDateString('en-GB',{weekday:'short'})+'</div><div class="nn'+(y===today?' today':'')+'">'+d.getDate()+'</div>'+(ho?'<div class="hh'+(ho.bank?' bank':'')+'">'+_vpEsc(ho.name)+'</div>':'')+'</div>';}).join('')+'</div>';
+  var anyAd=days.some(function(d){return _calDay(_ymd(d)).some(function(e){return e.allDay;});});
+  if(anyAd)h+='<div class="cal-ad"><div class="g">all-day</div>'+days.map(function(d){return '<div class="c">'+_calDay(_ymd(d)).filter(function(e){return e.allDay;}).map(function(e){return _calChip(e,true);}).join('')+'</div>';}).join('')+'</div>';
+  h+='<div class="cal-tg" id="cal-tg" style="--hh:'+HH+'px;"><div class="cal-hrs">';
+  for(var hr=0;hr<24;hr++)h+='<div>'+(hr?_pad2(hr)+':00':'')+'</div>';
+  h+='</div>';
+  days.forEach(function(d){
+    var y=_ymd(d),items=_calDay(y).filter(function(e){return !e.allDay;}).map(function(e){var s=_vpMins(e.start),en=e.end&&e.end.slice(0,10)===e.start.slice(0,10)?_vpMins(e.end):1440;return {e:e,s:s,en:Math.max(en,s+25)};});
+    _calLayout(items);
+    h+='<div class="cal-col" style="height:'+(24*HH)+'px;" data-ymd="'+y+'" onclick="calSlot(event,this)">';
+    for(var q=0;q<24;q++)h+='<div class="ln" style="top:'+(q*HH)+'px;"></div><div class="ln half" style="top:'+(q*HH+HH/2)+'px;"></div>';
+    items.forEach(function(it){
+      var w=100/it.n,top=it.s/60*HH,ht=Math.max(18,(it.en-it.s)/60*HH-1);
+      h+='<div class="cal-ev" style="background:'+_calEvColor(it.e)+';top:'+top+'px;height:'+ht+'px;left:calc('+(it.col*w)+'% + 1px);width:calc('+w+'% - 3px);" onclick="event.stopPropagation();calEvent(\''+_calEvKey(it.e)+'\')"><b>'+_vpEsc(it.e.summary)+'</b>'+it.e.start.slice(11,16)+(it.e.end?'-'+it.e.end.slice(11,16):'')+(it.e.location&&ht>50?'<br>'+_vpEsc(it.e.location):'')+'</div>';
+    });
+    if(y===today){var n=new Date();h+='<div class="cal-now" style="top:'+((n.getHours()*60+n.getMinutes())/60*HH)+'px;"></div>';}
+    h+='</div>';
+  });
+  return h+'</div>';
+}
+function calSlot(ev,el){
+  var r=el.getBoundingClientRect(),y=ev.clientY-r.top,HH=_calWide()?52:46;
+  var mins=Math.floor(y/HH*2)*30,t=_pad2(Math.floor(mins/60))+':'+_pad2(mins%60);
+  calNew(el.getAttribute('data-ymd'),t);
+}
+function _calSchedHtml(){
+  var a=new Date(_CAL.anchor+'T12:00:00'),today=_ymd(new Date()),h='<div class="cal-sched">',any=false;
+  for(var i=0;i<_CAL.sched;i++){
+    var d=_addD(a,i),y=_ymd(d),evs=_calDay(y).slice().sort(function(p,q){return (q.allDay?1:0)-(p.allDay?1:0)||(p.start<q.start?-1:1);}),ho=_holOf(y);
+    if(!evs.length&&!ho&&y!==today)continue;
+    any=true;
+    h+='<div class="cal-sd"><div class="dd" onclick="calGo(\''+y+'\',\'day\')"><div class="a">'+d.toLocaleDateString('en-GB',{weekday:'short'})+'</div><div class="b'+(y===today?' today':'')+'">'+d.getDate()+'</div><div class="a">'+d.toLocaleDateString('en-GB',{month:'short'})+'</div></div><div class="ee">';
+    if(ho)h+='<div class="cal-hrow'+(ho.bank?' bank':'')+'">'+_vpEsc(ho.name)+'</div>';
+    if(!evs.length)h+='<div class="cal-hrow" style="color:#999;">Nothing booked</div>';
+    evs.forEach(function(e){
+      h+='<div class="cal-row" style="background:'+_calEvColor(e)+';" onclick="calEvent(\''+_calEvKey(e)+'\')"><div class="t">'+(e.allDay?'All day':e.start.slice(11,16)+(e.end?' - '+e.end.slice(11,16):''))+'</div><div style="min-width:0;flex:1;"><div class="s">'+_vpEsc(e.summary)+'</div>'+(e.location?'<div class="l">'+_vpEsc(e.location)+'</div>':'')+'</div></div>';
+    });
+    h+='</div></div>';
+  }
+  if(!any)h+='<div style="padding:30px;text-align:center;color:#888;">Nothing in the diary for the next '+Math.round(_CAL.sched/7)+' weeks.</div>';
+  h+='<div style="text-align:center;padding:16px;"><button class="cal-btn" onclick="calMore()">Show 6 more weeks</button></div></div>';
+  return h;
+}
+function calEvent(k){
+  var e=_calKeys[k];if(!e)return;
+  var m=(e.description||'').match(/APL quote (aplquote\d+)/),ref=m?m[1]:'';
+  var when=e.allDay?'All day':new Date(e.start.slice(0,10)+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+', '+e.start.slice(11,16)+(e.end?' - '+e.end.slice(11,16):'');
+  if(e.allDay)when=new Date(e.start+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+' (all day)';
+  var old=document.getElementById('cal-evd');if(old)old.remove();
+  var ov=document.createElement('div');ov.className='modal-overlay';ov.id='cal-evd';
+  var h='<div class="modal" style="max-width:460px;"><div class="modal-top"><h2 style="font-size:17px;">'+_vpEsc(e.summary)+'</h2><button class="bs" onclick="document.getElementById(\'cal-evd\').remove()">Close</button></div><div class="modal-body">';
+  h+='<div style="font-size:14px;margin-bottom:10px;"><b>'+_vpEsc(when)+'</b></div>';
+  if(e.location)h+='<div style="font-size:14px;margin-bottom:10px;">'+_vpEsc(e.location)+'</div>';
+  if(e.description)h+='<div style="font-size:13px;color:#444;white-space:pre-wrap;background:#f5f5f3;border-radius:8px;padding:10px;margin-bottom:12px;">'+_vpEsc(e.description)+'</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  if(ref&&(S.estimates||[]).some(function(q){return q.ref===ref;}))h+='<button class="bg" onclick="calOpenQuote(\''+ref+'\')">Open quote</button>';
+  if(e.location)h+='<a class="bs" style="text-decoration:none;display:inline-block;" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.location)+'">Directions</a>';
+  h+='</div></div></div>';
+  ov.innerHTML=h;document.body.appendChild(ov);
+}
+function calOpenQuote(ref){closeCalendar();clearModals();S.previewRef=ref;S.view='estimates';render();}
+function _calRender(){
+  var ov=document.getElementById('cal-ov');if(!ov||!_CAL.open)return;
+  var wide=_calWide(),v=_CAL.view,a=new Date(_CAL.anchor+'T12:00:00');
+  _calKeys={};_calKn=0;
+  var scroll=0,sc=document.getElementById('cal-content');if(sc)scroll=sc.scrollTop;
+  var firstRender=!!_CAL.fresh;_CAL.fresh=false;
+  var seg=['schedule','day','week','month'].map(function(x){return '<button class="'+(v===x?'on':'')+'" onclick="calView(\''+x+'\')">'+({schedule:'Schedule',day:'Day',week:wide?'Week':'3 days',month:'Month'})[x]+'</button>';}).join('');
+  var h='<div class="cal-top"><button class="cal-btn" onclick="closeCalendar()">&#10005; Close</button><div class="cal-title" onclick="'+(wide?'':'calToggleMini()')+'">'+_calTitle()+(wide?'':' &#9662;')+'</div><button class="cal-btn" onclick="calToday()">Today</button><div style="display:flex;gap:4px;"><button class="cal-btn" onclick="calStep(-1)">&#8249;</button><button class="cal-btn" onclick="calStep(1)">&#8250;</button></div><div class="cal-seg">'+seg+'</div><button class="cal-btn" onclick="calRefresh()" title="Refresh from Google Calendar">&#8635;</button></div>';
+  if(_CAL.fail)h+='<div class="cal-fail">Google Calendar is not connected, so only visits made in APL are shown.</div>';
+  if(!wide&&_CAL.miniOpen)h+='<div class="cal-minip">'+_calMiniHtml()+'</div>';
+  var body='';
+  if(v==='month')body=_calMonthHtml();
+  else if(v==='week'){var ws=_calWeekStart(a),n=wide?7:3,ds=[];for(var i=0;i<n;i++)ds.push(_addD(ws,i));body=_calGridHtml(ds);}
+  else if(v==='day')body=_calGridHtml([a]);
+  else body=_calSchedHtml();
+  if(_CAL.loading>0)body='<div style="position:sticky;top:0;z-index:6;background:#eef6f1;color:#276749;font-size:12px;padding:4px 12px;">Loading your diary...</div>'+body;
+  h+='<div class="cal-main">'+(wide?'<div class="cal-side">'+_calMiniHtml()+'<div style="margin-top:16px;font-size:12px;color:#555;line-height:1.9;"><div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+_CALC[0]+';margin-right:6px;"></span>Site visits from APL</div><div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+_CALC[1]+';margin-right:6px;"></span>Other appointments</div><div><span style="color:#c62828;font-weight:700;margin-right:6px;">12</span>Bank holiday</div></div></div>':'')+'<div class="cal-content" id="cal-content">'+body+'</div></div>';
+  h+='<button class="cal-fab" onclick="calNew(\''+(_CAL.anchor)+'\')" aria-label="New enquiry">+</button>';
+  ov.innerHTML=h;
+  var c2=document.getElementById('cal-content');
+  if(c2){
+    if(firstRender){if(v==='week'||v==='day'){var HH=wide?52:46;c2.scrollTop=7*HH-4;}else c2.scrollTop=0;}
+    else c2.scrollTop=scroll;
+  }
+}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
