@@ -421,6 +421,14 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
   .modal-tabs{overflow:hidden;}
   .modal-tab{flex:1 1 0;min-width:0;padding:10px 2px !important;font-size:12px !important;text-align:center;white-space:normal !important;line-height:1.25;}
 }
+
+.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.qa-grid button{padding:14px 8px !important;}
+@media(max-width:700px){
+  .qa-grid{grid-template-columns:repeat(3,1fr);gap:8px;}
+  .qa-grid button{padding:12px 4px !important;font-size:13px !important;}
+  .qa-grid .qa-enq{grid-column:1/-1;flex-direction:row !important;justify-content:center;padding:16px 12px !important;font-size:15px !important;}
+}
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
@@ -1636,7 +1644,10 @@ function rDash(m){
     </div>
 
     <!-- Quick Actions -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+    <div class="qa-grid">
+      <button class="qa-enq" onclick="openNewEnquiry()" style="background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border:none;border-radius:12px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(194,65,12,0.25);">
+        <span style="font-size:28px;">📞</span>New Enquiry
+      </button>
       <button onclick="openNE()" style="background:linear-gradient(135deg,#276749,#38a169);color:#fff;border:none;border-radius:12px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(39,103,73,0.25);">
         <span style="font-size:28px;">✏️</span>New Quote
       </button>
@@ -2199,6 +2210,59 @@ function openNewClientForm(){
     </div>
   </div>`;
   document.body.appendChild(ov);
+}
+
+function openNewEnquiry(){
+  clearModals();
+  var today=new Date().toISOString().split('T')[0];
+  var ov=document.createElement('div');ov.className='modal-overlay';
+  ov.innerHTML='<div class="modal" style="max-width:500px;">'
+   +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" onclick="saveEnquiry()">Create Quote</button></div></div>'
+   +'<div class="modal-body">'
+   +'<div class="fl"><label>Full Name</label><input class="fi" id="ne2-name" placeholder="Customer full name" autocapitalize="words" autocomplete="off" autocorrect="off" oninput="capWords(this)"></div>'
+   +'<div class="fl"><label>Mobile Number</label><input class="fi" id="ne2-mobile" type="tel" inputmode="tel" placeholder="Mobile number" autocomplete="off"></div>'
+   +'<div class="fl"><label>Email</label><input class="fi" id="ne2-email" type="email" placeholder="Email address" autocapitalize="none" autocomplete="off" autocorrect="off"></div>'
+   +'<div class="fl"><label>Address</label><input class="fi" id="ne2-addr" placeholder="Street and town" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>'
+   +'<div class="fl"><label>Postcode</label><input class="fi" id="ne2-post" placeholder="Postcode" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;" oninput="capUpper(this)"></div>'
+   +'<div class="tc"><div class="fl"><label>Visit Date</label><input class="fi" id="ne2-date" type="date" value="'+today+'"></div>'
+   +'<div class="fl"><label>Visit Time</label><input class="fi" id="ne2-time" type="time"></div></div>'
+   +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
+   +'</div></div>';
+  document.body.appendChild(ov);
+}
+async function saveEnquiry(){
+  var g=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+  var name=g('ne2-name'),mobile=g('ne2-mobile'),email=g('ne2-email'),addr=g('ne2-addr'),post=g('ne2-post').toUpperCase(),vd=g('ne2-date'),vt=g('ne2-time'),notes=g('ne2-notes');
+  var miss=[];
+  if(!name)miss.push('name');
+  if(!mobile)miss.push('mobile number');
+  if(!email||email.indexOf('@')<1)miss.push('email');
+  if(!addr)miss.push('address');
+  if(!post)miss.push('postcode');
+  if(!vd)miss.push('visit date');
+  if(!vt)miss.push('visit time');
+  if(miss.length){alert('Please add: '+miss.join(', ')+'.');return;}
+  var sa=addr+', '+post;
+  var cl=(S.clients||[]).find(function(c){return c.name===name;});
+  if(!cl){S.clients.push({name:name,email:email,mobile:mobile,phone:'',serviceAddress:sa,address:sa,postcode:post,city:''});}
+  else{
+    if(!cl.email)cl.email=email;
+    if(!cl.mobile)cl.mobile=mobile;
+    if(!cl.serviceAddress){cl.serviceAddress=sa;if(!cl.address)cl.address=sa;}
+  }
+  var today=new Date().toISOString().split('T')[0];
+  var exp=new Date(Date.now()+90*24*60*60*1000).toISOString().split('T')[0];
+  var ne={ref:'aplquote'+S.nextQ,date:new Date().toISOString(),dateInput:today,expiryDate:exp,
+    clientName:name,address:sa,serviceAddress:sa,phone:'',mobile:mobile,email:email,
+    lineItems:[],notes:'',privateNotes:notes?('Directions: '+notes):'',photos:[],
+    vat:S.co.defaultVat||false,status:'PENDING',isNew:true,
+    markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
+    depositVal:0,depositType:'pct',
+    quoteFooter:S.co.quoteFooter||'',visitAt:vd+'T'+vt};
+  S.ne=ne;S.billingDiff=false;
+  clearModals();
+  var ok=await saveEst();
+  if(ok!==false)toast('Quote '+ne.ref+' created for '+name);
 }
 
 function toggleBillingDiff(){
