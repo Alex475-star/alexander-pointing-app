@@ -2226,12 +2226,12 @@ function _vpMins(iso){return parseInt(iso.slice(11,13),10)*60+parseInt(iso.slice
 function _vpNiceDay(ymd){return new Date(ymd+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});}
 function _enqWhenLabel(){
   var b=document.getElementById('ne2-when');if(!b)return;
-  if(_ENQ.date&&_ENQ.time){b.textContent=new Date(_ENQ.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '+_ENQ.time;b.style.color='#111';}
+  if(_ENQ.date&&_ENQ.time){b.textContent=new Date(_ENQ.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '+_ENQ.time+' - '+_vpEndTime(_ENQ.time,_ENQ.dur||60);b.style.color='#111';}
   else{b.textContent='Choose date and time';b.style.color='#888';}
 }
 function openNewEnquiry(preDate,preTime){
   clearModals();
-  _ENQ={date:'',time:'',busy:false};_VP.day='';_VP.time='';
+  _ENQ={date:'',time:'',dur:60,busy:false};_VP.day='';_VP.time='';_VP.dur=60;
   var f=function(id,label,ph,extra){return '<div class="fl"><label>'+label+'</label><input class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="off" '+(extra||'')+'></div>';};
   var ov=document.createElement('div');ov.className='modal-overlay';
   ov.innerHTML='<div class="modal" style="max-width:500px;">'
@@ -2244,7 +2244,7 @@ function openNewEnquiry(preDate,preTime){
    +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
    +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
    +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
-   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this)"')
+   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this)" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
    +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
@@ -2264,7 +2264,7 @@ function openVisitPicker(){
 function closeVisitPicker(){var o=document.getElementById('vp-ov');if(o)o.remove();}
 function doneVisitPicker(){
   if(!_VP.day||!_VP.time){alert('Tap a day, then tap a time.');return;}
-  _ENQ.date=_VP.day;_ENQ.time=_VP.time;closeVisitPicker();_enqWhenLabel();
+  _ENQ.date=_VP.day;_ENQ.time=_VP.time;_ENQ.dur=_VP.dur||60;closeVisitPicker();_enqWhenLabel();
 }
 function _vpGridStart(){
   var m=_VP.month,d=new Date(m.getFullYear(),m.getMonth(),1);
@@ -2325,12 +2325,16 @@ function _vpRender(loading){
     var hol=_holOf(_VP.day);if(hol)h+='<div style="background:'+(hol.bank?'#fee2e2':'#f3f4f6')+';color:'+(hol.bank?'#991b1b':'#374151')+';border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;margin-bottom:4px;">'+(hol.bank?'Bank holiday: ':'')+_vpEsc(hol.name)+'</div>';
     evs.filter(function(e){return e.allDay;}).forEach(function(e){h+='<div style="background:#fef3c7;border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:4px;">All day: '+_vpEsc(e.summary)+'</div>';});
     var timed=evs.filter(function(e){return !e.allDay;}).map(function(e){var s=_vpMins(e.start),en=e.end&&e.end.slice(0,10)===e.start.slice(0,10)?_vpMins(e.end):1440;return {e:e,s:s,en:Math.max(en,s+15)};});
-    var clash=[];
-    if(_VP.time){var tm=parseInt(_VP.time.slice(0,2),10)*60+parseInt(_VP.time.slice(3,5),10);timed.forEach(function(x){if(x.s<tm+60&&x.en>tm)clash.push(x.e.summary);});}
-    if(_VP.time)h+='<div style="font-size:12px;margin-bottom:6px;color:'+(clash.length?'#c62828':'#276749')+';">'+(clash.length?'Clashes with: '+_vpEsc(clash.join(', ')):'Free at '+_VP.time)+'</div>';
-    for(var mn=7*60;mn<19*60;mn+=30){
-      var t=_pad2(Math.floor(mn/60))+':'+_pad2(mn%60),starts=timed.filter(function(x){return x.s>=mn&&x.s<mn+30;}),busy=timed.some(function(x){return x.s<mn+30&&x.en>mn;}),sel2=_VP.time===t;
-      h+='<div onclick="vpTime(\''+t+'\')" style="display:flex;gap:10px;align-items:center;min-height:40px;padding:4px 10px;border-radius:6px;margin-bottom:2px;cursor:pointer;font-size:13px;'+(sel2?'background:#276749;color:#fff;':(busy?'background:#ffedd5;':'background:#f5f5f3;'))+'"><div style="width:44px;font-weight:600;">'+t+'</div><div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(starts.length?starts.map(function(x){return _vpEsc(x.e.summary)+' ('+x.e.start.slice(11,16)+'-'+(x.e.end?x.e.end.slice(11,16):'')+')';}).join(', '):(busy?'<span style="opacity:0.6;">busy</span>':''))+'</div></div>';
+    var clash=[],dur=_VP.dur||60,tm=-1;
+    if(_VP.time){tm=parseInt(_VP.time.slice(0,2),10)*60+parseInt(_VP.time.slice(3,5),10);timed.forEach(function(x){if(x.s<tm+dur&&x.en>tm)clash.push(x.e.summary);});}
+    if(_VP.time){
+      var opts='';for(var d2=15;d2<=Math.min(720,1440-tm);d2+=15){opts+='<option value="'+d2+'"'+(d2===dur?' selected':'')+'>'+_vpEndTime(_VP.time,d2)+' ('+_vpDurLabel(d2)+')</option>';}
+      h+='<div style="display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:13px;"><span style="font-weight:600;">Finishes</span><select class="fi" style="height:38px;width:auto;flex:1;max-width:240px;" onchange="vpDur(this.value)">'+opts+'</select></div>';
+      h+='<div style="font-size:12px;margin-bottom:6px;color:'+(clash.length?'#c62828':'#276749')+';">'+(clash.length?'Clashes with: '+_vpEsc(clash.join(', ')):'Free from '+_VP.time+' to '+_vpEndTime(_VP.time,dur))+'</div>';
+    }else h+='<div style="font-size:12px;margin-bottom:6px;color:#888;">Tap a start time, then choose when it finishes.</div>';
+    for(var mn=7*60;mn<21*60;mn+=15){
+      var t=_pad2(Math.floor(mn/60))+':'+_pad2(mn%60),starts=timed.filter(function(x){return x.s>=mn&&x.s<mn+15;}),busy=timed.some(function(x){return x.s<mn+15&&x.en>mn;}),inSel=tm>=0&&mn>=tm&&mn<tm+dur;
+      h+='<div onclick="vpTime(\''+t+'\')" style="display:flex;gap:10px;align-items:center;min-height:32px;padding:3px 10px;border-radius:6px;margin-bottom:1px;cursor:pointer;font-size:13px;'+(inSel?'background:#276749;color:#fff;':(busy?'background:#ffedd5;':'background:#f5f5f3;'))+'"><div style="width:44px;font-weight:'+(mn%60===0?'700':'500')+';opacity:'+(mn%30===0?'1':'0.6')+';">'+t+'</div><div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(starts.length?starts.map(function(x){return _vpEsc(x.e.summary)+' ('+x.e.start.slice(11,16)+'-'+(x.e.end?x.e.end.slice(11,16):'')+')';}).join(', '):(busy?'<span style="opacity:0.6;">busy</span>':''))+'</div></div>';
     }
   }
   body.innerHTML=h;body.scrollTop=top;
@@ -2366,7 +2370,7 @@ async function saveEnquiry(){
     vat:S.co.defaultVat||false,status:'PENDING',isNew:true,
     markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
     depositVal:0,depositType:'pct',
-    quoteFooter:S.co.quoteFooter||'',visitAt:_ENQ.date+'T'+_ENQ.time};
+    quoteFooter:S.co.quoteFooter||'',visitAt:_ENQ.date+'T'+_ENQ.time,visitDur:_ENQ.dur||60};
   S.ne=ne;S.billingDiff=false;
   clearModals();
   var ok=await saveEst();
@@ -2375,7 +2379,7 @@ async function saveEnquiry(){
   var calOk=false;
   try{
     var desc=['Mobile: '+mobile].concat(mobile2?['Phone 2: '+mobile2]:[],['Email: '+email],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
-    var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:60,location:sa,description:desc})});
+    var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:_ENQ.dur||60,location:sa,description:desc})});
     if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;saveData();}calOk=true;}
   }catch(e){}
   if(typeof _CAL!=='undefined'&&_CAL.open)calRefresh();
@@ -2532,7 +2536,7 @@ async function _calLoadMonth(y,m){
     var d=await r.json();_calAddEvents(d.events||[]);
   }catch(e){
     _CAL.fail=true;
-    _calAddEvents((S.estimates||[]).filter(function(q){return q.visitAt&&q.visitAt.slice(0,7)===key;}).map(function(q){return {id:'apl'+q.ref,cal:0,summary:'Site visit - '+(q.clientName||''),start:q.visitAt+':00',end:new Date(new Date(q.visitAt+':00Z').getTime()+3600000).toISOString().slice(0,16)+':00',allDay:false,location:q.serviceAddress||'',description:'APL quote '+q.ref};}));
+    _calAddEvents((S.estimates||[]).filter(function(q){return q.visitAt&&q.visitAt.slice(0,7)===key;}).map(function(q){return {id:'apl'+q.ref,cal:0,summary:'Site visit - '+(q.clientName||''),start:q.visitAt+':00',end:new Date(new Date(q.visitAt+':00Z').getTime()+(q.visitDur||60)*60000).toISOString().slice(0,16)+':00',allDay:false,location:q.serviceAddress||'',description:'APL quote '+q.ref};}));
   }
   _CAL.loading--;
 }
@@ -2667,7 +2671,7 @@ function _calGridHtml(days){
 }
 function calSlot(ev,el){
   var r=el.getBoundingClientRect(),y=ev.clientY-r.top,HH=_calWide()?52:46;
-  var mins=Math.floor(y/HH*2)*30,t=_pad2(Math.floor(mins/60))+':'+_pad2(mins%60);
+  var mins=Math.floor(y/HH*4)*15,t=_pad2(Math.floor(mins/60))+':'+_pad2(mins%60);
   calNew(el.getAttribute('data-ymd'),t);
 }
 function _calSchedHtml(){
@@ -2730,6 +2734,27 @@ function _calRender(){
     if(firstRender){if(v==='week'||v==='day'){var HH=wide?52:46;c2.scrollTop=7*HH-4;}else c2.scrollTop=0;}
     else c2.scrollTop=scroll;
   }
+}
+function _vpEndTime(t,d){var m=parseInt(t.slice(0,2),10)*60+parseInt(t.slice(3,5),10)+d;return _pad2(Math.floor(m/60)%24)+':'+_pad2(m%60);}
+function _vpDurLabel(d){if(d<60)return d+' min';var h=Math.floor(d/60),m=d%60;return h+(h===1?' hr':' hrs')+(m?' '+m+' min':'');}
+function vpDur(v){_VP.dur=parseInt(v,10)||60;_vpRender(false);}
+async function enqPostLookup(){
+  var el=document.getElementById('ne2-post'),st=document.getElementById('ne2-pcmsg');if(!el)return;
+  var pc=el.value.replace(/\s+/g,'').toUpperCase();
+  if(!pc){if(st)st.textContent='';return;}
+  if(!/^[A-Z]{1,2}[0-9][A-Z0-9]?[0-9][A-Z]{2}$/.test(pc)){if(st){st.style.color='#c62828';st.textContent='That does not look like a UK postcode';}return;}
+  el.value=pc.slice(0,-3)+' '+pc.slice(-3);
+  if(st){st.style.color='#888';st.textContent='Checking postcode...';}
+  try{
+    var r=await fetch('https://api.postcodes.io/postcodes/'+pc);
+    if(!r.ok){if(st){st.style.color='#c62828';st.textContent='Postcode not found - please check it';}return;}
+    var d=(await r.json()).result||{};
+    var city=document.getElementById('ne2-city'),county=document.getElementById('ne2-county');
+    var town=d.admin_district||'';
+    if(city&&!city.value.trim()&&town)city.value=town;
+    if(county&&!county.value.trim()&&d.admin_county)county.value=d.admin_county;
+    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'')+(d.region?', '+d.region:'');}
+  }catch(e){if(st)st.textContent='';}
 }
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
