@@ -412,7 +412,14 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
 }
 @media(max-width:1024px){
   .modal-overlay{padding-top:env(safe-area-inset-top,0px) !important;}
-  .modal{max-height:calc(100dvh - env(safe-area-inset-top,0px)) !important;}
+  .modal{max-height:calc(100dvh - env(safe-area-inset-top,0px)) !important;overflow-x:hidden !important;overscroll-behavior:contain;touch-action:pan-y;}
+  .modal-overlay{overscroll-behavior:none;touch-action:pan-y;}
+  .modal-body{overflow-x:hidden;}
+  .lir{display:flex !important;flex-direction:column !important;}
+}
+@media(max-width:700px){
+  .modal-tabs{overflow:hidden;}
+  .modal-tab{flex:1 1 0;min-width:0;padding:10px 2px !important;font-size:12px !important;text-align:center;white-space:normal !important;line-height:1.25;}
 }
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
@@ -1485,7 +1492,7 @@ function rSplit(m,kind){
   S.previewRef=sel?sel.ref:null;
   const old=document.querySelector('.split-l');const top=old?old.scrollTop:0;
   const isInv=kind==='inv';
-  const tabs=isInv?['ACTIVE','PAID']:['PENDING','APPROVED','DECLINED'];
+  const tabs=isInv?['ACTIVE','PAID']:['PENDING','APPROVED'];
   const cur=isInv?(S.itab||'ACTIVE'):S.stab;
   const setTab=t=>isInv?`S.itab='${t}';S.previewRef=null;render()`:`S.stab='${t}';S.previewRef=null;render()`;
   m.innerHTML=`
@@ -1518,6 +1525,7 @@ function render(){
   _zoomFor(!!S.previewRef);
 }
 function _renderInner(){
+  if(S.stab==='DECLINED')S.stab='PENDING';
   const m=document.getElementById('main-area');if(!m)return;
   clearModals();
   if(_wide()&&(S.view==='estimates'||S.view==='invoices')){rSplit(m,S.view==='invoices'?'inv':'est');applyMobileLayout();return;}
@@ -1850,7 +1858,7 @@ function rEst(m){
   const g=grpByMonth(fl);
   m.innerHTML=`
   <div class="topbar"><h1>Estimates</h1><div style="display:flex;gap:8px;"><button class="bg" onclick="openNE()">+ New Estimate</button></div></div>
-  <div class="tabs">${['PENDING','APPROVED','DECLINED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
+  <div class="tabs">${['PENDING','APPROVED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
   <div class="content">
     <div class="dl-tools"><input class="si" placeholder="Search by name, address or estimate #" value="${_esc(S.sq||'')}" oninput="S.sq=this.value;render()"><button class="bs" onclick="exportToExcel()">Export</button></div>
     ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.<br>Tap <strong>+ New Estimate</strong> to create one.</div>`:docListHtml(g,'est')}
@@ -3089,7 +3097,7 @@ function cycleStatus(ref){
   const isI=ref.includes('invoice');
   const ov=document.createElement('div');ov.className='modal-overlay send-overlay';
   ov.onclick=e=>{if(e.target===ov)ov.remove();};
-  const statuses=isI?['ACTIVE','PAID']:['PENDING','APPROVED','DECLINED'];
+  const statuses=isI?['ACTIVE','PAID']:['PENDING','APPROVED'];
   ov.innerHTML=`<div class="send-box" style="width:100%;border-radius:16px 16px 0 0;padding:8px 0 20px;">
     <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:8px auto 16px;"></div>
     <div style="font-size:13px;font-weight:600;color:#888;padding:0 20px 10px;">Change Status</div>
