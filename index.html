@@ -2244,7 +2244,7 @@ function openNewEnquiry(preDate,preTime){
    +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
    +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
    +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
-   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this)" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
+   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
    +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
@@ -2738,11 +2738,16 @@ function _calRender(){
 function _vpEndTime(t,d){var m=parseInt(t.slice(0,2),10)*60+parseInt(t.slice(3,5),10)+d;return _pad2(Math.floor(m/60)%24)+':'+_pad2(m%60);}
 function _vpDurLabel(d){if(d<60)return d+' min';var h=Math.floor(d/60),m=d%60;return h+(h===1?' hr':' hrs')+(m?' '+m+' min':'');}
 function vpDur(v){_VP.dur=parseInt(v,10)||60;_vpRender(false);}
-async function enqPostLookup(){
+var _pcT=null,_pcLast='';
+function enqPostSoon(){clearTimeout(_pcT);_pcT=setTimeout(function(){enqPostLookup(true);},700);}
+async function enqPostLookup(quiet){
   var el=document.getElementById('ne2-post'),st=document.getElementById('ne2-pcmsg');if(!el)return;
   var pc=el.value.replace(/\s+/g,'').toUpperCase();
-  if(!pc){if(st)st.textContent='';return;}
-  if(!/^[A-Z]{1,2}[0-9][A-Z0-9]?[0-9][A-Z]{2}$/.test(pc)){if(st){st.style.color='#c62828';st.textContent='That does not look like a UK postcode';}return;}
+  if(!pc){if(st)st.textContent='';_pcLast='';return;}
+  if(!/^[A-Z]{1,2}[0-9][A-Z0-9]?[0-9][A-Z]{2}$/.test(pc)){if(st&&quiet!==true){st.style.color='#c62828';st.textContent='That does not look like a UK postcode';}return;}
+  var _c0=document.getElementById('ne2-city');
+  if(quiet===true&&pc===_pcLast&&_c0&&_c0.value.trim())return;
+  _pcLast=pc;
   el.value=pc.slice(0,-3)+' '+pc.slice(-3);
   if(st){st.style.color='#888';st.textContent='Checking postcode...';}
   try{
@@ -2752,8 +2757,9 @@ async function enqPostLookup(){
     var city=document.getElementById('ne2-city'),county=document.getElementById('ne2-county');
     var town=d.admin_district||'';
     if(city&&!city.value.trim()&&town)city.value=town;
-    if(county&&!county.value.trim()&&d.admin_county)county.value=d.admin_county;
-    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'')+(d.region?', '+d.region:'');}
+    var cty=d.admin_county||(d.pfa&&!/police|metropolitan|city of london/i.test(d.pfa)?d.pfa:'');
+    if(county&&!county.value.trim()&&cty)county.value=cty;
+    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'')+(cty?', '+cty:'');}
   }catch(e){if(st)st.textContent='';}
 }
 function toggleBillingDiff(){
