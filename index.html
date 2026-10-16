@@ -4748,24 +4748,68 @@ function buildDesktopHtml(doc){
     +'</body></html>';
 }
 
-function downloadPdf(){
+function _loadPdfLib(){
+  return new Promise(function(res,rej){
+    if(window.html2pdf)return res();
+    var sc=document.createElement('script');sc.src='/html2pdf.bundle.min.js';
+    sc.onload=function(){window.html2pdf?res():rej(new Error('no lib'));};
+    sc.onerror=function(){rej(new Error('load failed'));};
+    document.head.appendChild(sc);
+  });
+}
+function _pdfBusy(on){
+  var els=document.querySelectorAll('[data-dlpdf]');
+  els.forEach(function(b){if(!b.dataset.orig)b.dataset.orig=b.innerHTML;b.innerHTML=on?'Preparing PDF…':b.dataset.orig;b.style.opacity=on?'0.6':'';b.style.pointerEvents=on?'none':'';});
+}
+async function downloadPdf(){
   var doc=S.custDoc;if(!doc)return;
-  var h=buildDesktopHtml(doc);
-  if(window.innerWidth>768){
-    // Desktop: open new window and auto-trigger print — user selects Save as PDF
-    h=h.replace('</body>','<script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script></body>');
-    var w=window.open('','_blank');
-    if(!w){alert('Please allow popups to download PDF.');return;}
-    w.document.write(h);w.document.close();
-  } else {
-    // Mobile: open blob in new tab with save tip
-    h=h.replace('<body>','<body><div style="background:#276749;color:#fff;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;position:sticky;top:0;z-index:999;">Tap menu &rarr; Print &rarr; Save as PDF</div>');
-    var blob=new Blob([h],{type:'text/html'});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url;a.target='_blank';a.rel='noopener';
-    document.body.appendChild(a);a.click();
-    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+  var isInv=(doc.ref||'').indexOf('invoice')>=0;
+  var fname=(isInv?'Invoice-':'Quote-')+(doc.ref||'document').replace(/[^A-Za-z0-9_-]/g,'')+'.pdf';
+  _pdfBusy(true);
+  var fr=null,host=null,_sy=0;
+  try{
+    await _loadPdfLib();
+    var h=buildDesktopHtml(doc);
+    var parsed=new DOMParser().parseFromString(h,'text/html');
+    var st=document.createElement('style');st.id='pdfwrap-css';
+    st.textContent='.pdfwrap{width:794px;padding:0 18mm;box-sizing:border-box;background:#fff;color:#222;font-family:Helvetica Neue,Arial,sans-serif;font-size:15px;}.pdfwrap *{box-sizing:border-box;margin:0;padding:0;}.pdfwrap table{border-collapse:collapse;width:100%;}';
+    document.head.appendChild(st);
+    host=document.createElement('div');host.style.cssText='position:fixed;left:-12000px;top:0;width:794px;';
+    fr=document.createElement('div');fr.className='pdfwrap';fr.innerHTML=parsed.body.innerHTML;
+    host.appendChild(fr);document.body.appendChild(host);
+    // photos: lay out as wrapped blocks so a page break never cuts one in half
+    [].slice.call(fr.querySelectorAll('div')).forEach(function(g){
+      if(g.style.display==='grid'&&g.querySelector('img')){
+        var ims=[].slice.call(g.querySelectorAll(':scope > img'));
+        if(!ims.length)return;
+        g.style.display='block';g.style.fontSize='0';
+        ims.forEach(function(im){
+          var w=document.createElement('div');w.className='pdf-avoid';
+          w.style.cssText='display:inline-block;width:32.3%;margin:0 1% 8px 0;vertical-align:top;';
+          im.parentNode.insertBefore(w,im);w.appendChild(im);
+        });
+      }
+    });
+    var imgs=[].slice.call(fr.querySelectorAll('img'));
+    await Promise.all(imgs.map(function(im){return im.complete?1:new Promise(function(r){im.onload=im.onerror=r;});}));
+    await new Promise(function(r){setTimeout(r,300);});
+    _sy=window.scrollY||0;window.scrollTo(0,0);
+    await window.html2pdf().set({
+      margin:[14,0,14,0],filename:fname,
+      image:{type:'jpeg',quality:0.95},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'],avoid:['tr','.pdf-avoid','.footer-print']}
+    }).from(fr).save();
+  }catch(e){
+    console.log('PDF error',e);
+    // fallback: the old print route
+    try{printDesktop();}catch(x){}
+  }finally{
+    if(host&&host.parentNode)host.parentNode.removeChild(host);
+    var _st=document.getElementById('pdfwrap-css');if(_st)_st.remove();
+    try{window.scrollTo(0,typeof _sy==='number'?_sy:0);}catch(e){}
+    _pdfBusy(false);
   }
 }
 
@@ -4922,7 +4966,7 @@ function renderCustomerView(doc){
     // Calculate iframe height after load
     body.innerHTML=
       '<div class="no-print" style="background:#f8f8f8;border-bottom:1px solid #e0e0e0;padding:calc(10px + env(safe-area-inset-top,0px)) 20px 10px;display:flex;gap:10px;justify-content:flex-end;align-items:center;">'
-      +'<button onclick="downloadPdf()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 18px;font-size:15px;cursor:pointer;">&#x2B07;&#xFE0F; Download PDF</button>'
+      +'<button data-dlpdf onclick="downloadPdf()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 18px;font-size:15px;cursor:pointer;">&#x2B07;&#xFE0F; Download PDF</button>'
       +'<button onclick="printDesktop()" style="background:#276749;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:15px;font-weight:600;cursor:pointer;">&#x1F5A8;&#xFE0F; Print</button>'
       +'</div>'
       +'<div style="background:#e8e8e8;padding:30px 40px;min-height:100vh;">'
@@ -4967,7 +5011,7 @@ function renderCustomerView(doc){
     +'style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:16px;font-weight:600;color:#333;">'
     +'<span>More Actions</span><span style="font-size:14px;">&#9660;</span></div>'
     +'<div id="more-actions-dd" style="display:none;border-top:1px solid #e0e0e0;">'
-    +'<div onclick="downloadPdf()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:16px;color:#333;">'
+    +'<div data-dlpdf onclick="downloadPdf()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:16px;color:#333;">'
     +'<span style="font-size:18px;">&#x2B07;&#xFE0F;</span>Download PDF</div>'
     +'<div onclick="printDesktop()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:16px;color:#333;">'
     +'<span style="font-size:18px;">&#x1F5A8;&#xFE0F;</span>View &amp; Print PDF</div>'
