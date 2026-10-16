@@ -1918,14 +1918,13 @@ function showEstModal(){
               <div style="font-size:13px;color:#666;margin-top:3px;">${ne.serviceAddress||ne.address||''}</div>
               <div style="font-size:13px;color:#666;">${ne.mobile||ne.phone||''} ${ne.email?'· '+ne.email:''}</div>
               <div style="display:flex;gap:8px;margin-top:4px;">
-                <span style="font-size:11px;color:#276749;font-weight:500;">Tap to change client</span>
-                <span style="font-size:11px;color:#888;">|</span>
-                <span style="font-size:11px;color:#276749;font-weight:500;cursor:pointer;" onclick="event.stopPropagation();S.editClientDetails=!S.editClientDetails;showEstModal()">Edit details</span>
+                <span style="font-size:11px;color:#276749;font-weight:500;">Tap to edit details</span>
               </div></div>`
             :`<div style="text-align:center;width:100%;"><div style="font-size:22px;margin-bottom:4px;">👤</div><div style="color:#276749;font-size:16px;font-weight:600;">+ Add Client</div></div>`}
           </div>
           ${S.editClientDetails&&ne.clientName?`<div style="margin-top:8px;padding:10px;background:#f9f9f7;border-radius:8px;border:1px solid #e5e5e0;">
-            <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Edit Quote Address and Contact</div>
+            <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Edit Client Details</div>
+            <div style="font-size:11px;color:#666;margin-bottom:8px;line-height:1.4;">Saving also updates this client in your Clients list. If you change the name, it is saved as a separate client and the original is left as it was.</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
               <div><label style="font-size:11px;color:#888;">Client Name</label><input class="fi" value="${ne.clientName||''}" placeholder="Client name" autocapitalize="words" autocomplete="off" oninput="S.ne.clientName=this.value"></div>
               <div><label style="font-size:11px;color:#888;">Address</label><input class="fi" value="${ne.serviceAddress||ne.address||''}" placeholder="Property address" oninput="S.ne.serviceAddress=this.value;S.ne.address=this.value"></div>
@@ -2238,9 +2237,9 @@ function openNewEnquiry(preDate,preTime){
    +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" id="ne2-save" onclick="saveEnquiry()">Create Quote</button></div></div>'
    +'<div class="modal-body">'
    +f('ne2-name','Full Name','Customer full name','autocapitalize="words" autocorrect="off" oninput="capWords(this)"')
-   +f('ne2-mobile','Mobile Number','Mobile number','type="tel" inputmode="tel"')
+   +f('ne2-mobile','Mobile Number','Mobile number (optional)','type="tel" inputmode="tel"')
    +f('ne2-mobile2','Phone Number 2','Home or other number (optional)','type="tel" inputmode="tel"')
-   +f('ne2-email','Email','Email address','type="email" autocapitalize="none" autocorrect="off"')
+   +f('ne2-email','Email','Email address (optional)','type="email" autocapitalize="none" autocorrect="off"')
    +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
    +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
    +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
@@ -2345,8 +2344,7 @@ async function saveEnquiry(){
   var name=g('ne2-name'),mobile=g('ne2-mobile'),mobile2=g('ne2-mobile2'),email=g('ne2-email'),a1=g('ne2-a1'),a2=g('ne2-a2'),city=g('ne2-city'),county=g('ne2-county'),post=g('ne2-post').toUpperCase(),notes=g('ne2-notes');
   var miss=[];
   if(!name)miss.push('name');
-  if(!mobile)miss.push('mobile number');
-  if(!email||email.indexOf('@')<1)miss.push('email');
+  if(email&&email.indexOf('@')<1)miss.push('a valid email address (or leave the email empty)');
   if(!a1)miss.push('address line 1');
   if(!city)miss.push('town / city');
   if(!post)miss.push('postcode');
@@ -2371,14 +2369,14 @@ async function saveEnquiry(){
     markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
     depositVal:0,depositType:'pct',
     quoteFooter:S.co.quoteFooter||'',visitAt:_ENQ.date+'T'+_ENQ.time,visitDur:_ENQ.dur||60};
-  S.ne=ne;S.billingDiff=false;
+  S.ne=ne;S.billingDiff=false;S.neOrig={ref:ne.ref,name:name};
   clearModals();
   var ok=await saveEst();
   _ENQ.busy=false;
   if(ok===false)return;
   var calOk=false;
   try{
-    var desc=['Mobile: '+mobile].concat(mobile2?['Phone 2: '+mobile2]:[],['Email: '+email],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
+    var desc=[].concat(mobile?['Mobile: '+mobile]:[],mobile2?['Phone 2: '+mobile2]:[],email?['Email: '+email]:[],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
     var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:_ENQ.dur||60,location:sa,description:desc})});
     if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;saveData();}calOk=true;}
   }catch(e){}
@@ -2789,17 +2787,20 @@ function saveNewClientForm(){
   };
   if(!S.clients.find(c=>c.name===name))S.clients.push(client);
   Object.assign(S.ne,{clientName:name,email:client.email,mobile:client.mobile,phone:client.phone,serviceAddress:sa,address:ba});
+  S.neOrig={ref:S.ne.ref,name:name};
   S.showCS=false;S.cs='';S.billingDiff=false;S.modal='ne';
   render();
 }
 
 function toggleCS(){
+  if(S.ne&&S.ne.clientName){S.editClientDetails=!S.editClientDetails;showEstModal();return;}
   if(!(S.ne&&S.ne.clientName)){S.showCS=false;S.cs='';openNewClientForm();return;}
   S.showCS=!S.showCS;S.cs='';showEstModal();
 }
 function pickClient(enc){
   const c=JSON.parse(decodeURIComponent(enc));
   Object.assign(S.ne,{clientName:c.name,address:c.address||'',serviceAddress:c.serviceAddress||c.address||'',phone:c.phone||'',mobile:c.mobile||'',email:c.email||''});
+  S.neOrig={ref:S.ne.ref,name:c.name};
   S.showCS=false;S.cs='';showEstModal();
 }
 function newClient(){openNewClientForm();}
@@ -2913,14 +2914,14 @@ function openNE(){
     markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
     depositVal:0,depositType:'pct',
     quoteFooter:S.co.quoteFooter||''};
-  S.picker=false;S.showCS=false;S.billingDiff=false;S.modal='ne';S.modalTab='details';
+  S.picker=false;S.showCS=false;S.billingDiff=false;S.modal='ne';S.modalTab='details';S.neOrig=null;S.editClientDetails=false;
   if(S.view!=='estimates'){S.view='estimates';document.querySelectorAll('.ni').forEach(el=>el.classList.remove('active'));document.getElementById('nav-estimates')?.classList.add('active');}
   render();
 }
 function editE(ref){
   const e=S.estimates.find(x=>x.ref===ref);if(!e)return;
   S.neBase=_stable(e);
-  S.ne=JSON.parse(JSON.stringify(e));S.ne.isNew=false;
+  S.ne=JSON.parse(JSON.stringify(e));S.ne.isNew=false;S.neOrig={ref:e.ref,name:e.clientName||''};S.editClientDetails=false;
   if(!S.ne.photos)S.ne.photos=[];
   S.picker=false;S.showCS=false;S.modalTab='details';
   S.previewRef=null;
@@ -2930,7 +2931,7 @@ function editE(ref){
 function editI(ref){
   const inv=S.invoices.find(x=>x.ref===ref);if(!inv)return;
   S.neBase=_stable(inv);
-  S.ne=JSON.parse(JSON.stringify(inv));S.ne.isNew=false;
+  S.ne=JSON.parse(JSON.stringify(inv));S.ne.isNew=false;S.neOrig={ref:inv.ref,name:inv.clientName||''};S.editClientDetails=false;
   if(!S.ne.photos)S.ne.photos=[];
   if(!S.ne.dateInput)S.ne.dateInput=S.ne.date?S.ne.date.substring(0,10):new Date().toISOString().substring(0,10);
   S.picker=false;S.showCS=false;S.modalTab='details';
@@ -2938,12 +2939,30 @@ function editI(ref){
   render();
   showEstModal();
 }
+function _syncClient(ne){
+  try{
+    if(!ne||!ne.clientName)return;
+    var name=String(ne.clientName).trim();if(!name)return;
+    if(!S.clients)S.clients=[];
+    var c=S.clients.find(function(x){return x.name===name;});
+    var sa=ne.serviceAddress||ne.address||'';
+    if(c){
+      if(ne.email)c.email=ne.email;
+      if(ne.mobile)c.mobile=ne.mobile;
+      if(ne.phone)c.phone=ne.phone;
+      if(sa){var sameBill=!c.address||c.address===c.serviceAddress;c.serviceAddress=sa;if(sameBill)c.address=sa;}
+    }else if(S.neOrig&&S.neOrig.ref===ne.ref&&S.neOrig.name&&S.neOrig.name!==name){
+      S.clients.push({name:name,email:ne.email||'',mobile:ne.mobile||'',phone:ne.phone||'',serviceAddress:sa,address:sa,postcode:'',city:''});
+    }
+  }catch(e){}
+}
 async function saveInv(){
   const ne=S.ne;
   ne.date=ne.dateInput||ne.date;
   ne.invoiceFooter=S.co.invoiceFooter||ne.invoiceFooter||'';
   const i=S.invoices.findIndex(x=>x.ref===ne.ref);
   if(i>=0){if(!(await _conflictOK('invoices',ne,'invoice')))return false;S.invoices[i]=ne;}
+  _syncClient(ne);
   saveData();closeModal();return true;
 }
 async function saveEst(){
@@ -2959,6 +2978,7 @@ async function saveEst(){
     const i=S.estimates.findIndex(e=>e.ref===ne.ref);if(i>=0)S.estimates[i]=ne;else S.estimates.unshift(ne);
   }
   S.neBase=_stable(ne);
+  _syncClient(ne);
   saveData();closeModal();return true;
 }
 function closeModal(){S.modal=null;S.picker=false;S.showCS=false;S.modalTab='details';clearModals();render();}
