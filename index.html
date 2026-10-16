@@ -2781,8 +2781,7 @@ async function enqPostLookup(quiet){
     var d=(await r.json()).result||{};
     var city=document.getElementById('ne2-city'),county=document.getElementById('ne2-county');
     var town=d.admin_district||'';
-    if(city&&!city.value.trim()&&town)city.value=town;
-    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'');}
+    if(st){st.style.color='#276749';st.textContent='Postcode found';}
   }catch(e){if(st)st.textContent='';}
 }
 function toggleBillingDiff(){
