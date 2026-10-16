@@ -431,6 +431,17 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
   .qa-grid .qa-cal{grid-column:1/-1;flex-direction:row !important;justify-content:center;padding:12px !important;font-size:15px !important;}
   .qa-grid .qa-cal span{height:auto !important;display:flex !important;}
 }
+
+@media(max-width:700px){
+  .cl-row{flex-direction:column !important;gap:10px !important;}
+  .cl-row>.cl-main,.cl-row>.cl-side{width:100% !important;flex:none !important;min-width:0 !important;}
+  .cl-side{display:grid !important;grid-template-columns:1fr 1fr;gap:8px 10px !important;}
+  .cl-edit{padding:14px !important;}
+  .cl-edit .fi{width:100% !important;height:48px !important;font-size:16px !important;padding:0 12px !important;}
+  .cl-edit label{font-size:12px !important;}
+  .pv-bar{padding-top:calc(env(safe-area-inset-top,0px) + 8px) !important;}
+  .pv-bar button{padding-top:12px !important;padding-bottom:12px !important;font-size:15px !important;}
+}
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
@@ -1909,8 +1920,8 @@ function showEstModal(){
         <div class="modal-tab ${S.modalTab==='signature'?'active':''}" onclick="S.modalTab='signature';showEstModal()">✍️ Signature${ne.signature?' ●':''}</div>
       </div>
       ${dt?`
-      <div style="display:flex;gap:14px;margin-bottom:14px;">
-        <div style="flex:1;">
+      <div class="cl-row" style="display:flex;gap:14px;margin-bottom:14px;">
+        <div class="cl-main" style="flex:1;">
           <label style="font-size:11px;color:#888;font-weight:500;">Client</label>
           <div class="client-box" onclick="toggleCS()">
             ${ne.clientName?`<div style="width:100%;">
@@ -1922,7 +1933,7 @@ function showEstModal(){
               </div></div>`
             :`<div style="text-align:center;width:100%;"><div style="font-size:22px;margin-bottom:4px;">👤</div><div style="color:#276749;font-size:16px;font-weight:600;">+ Add Client</div></div>`}
           </div>
-          ${S.editClientDetails&&ne.clientName?`<div style="margin-top:8px;padding:10px;background:#f9f9f7;border-radius:8px;border:1px solid #e5e5e0;">
+          ${S.editClientDetails&&ne.clientName?`<div class="cl-edit" style="margin-top:8px;padding:10px;background:#f9f9f7;border-radius:8px;border:1px solid #e5e5e0;">
             <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Edit Client Details</div>
             <div style="font-size:11px;color:#666;margin-bottom:8px;line-height:1.4;">Saving also updates this client in your Clients list. If you change the name, it is saved as a separate client and the original is left as it was.</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
@@ -1940,7 +1951,7 @@ function showEstModal(){
             </div>
           </div>`:''}
         </div>
-        <div style="width:190px;display:flex;flex-direction:column;gap:8px;">
+        <div class="cl-side" style="width:190px;display:flex;flex-direction:column;gap:8px;">
           <div class="fl"><label>Estimate #</label><input class="fi" value="${ne.ref}" readonly></div>
           <div class="fl"><label>Date</label><input class="fi" type="date" value="${ne.dateInput}" onchange="S.ne.dateInput=this.value"></div>
           ${isInv?'':`<div class="fl"><label>Valid until (90 days)</label><input class="fi" value="${ne.expiryDate}" readonly></div>`}
@@ -3344,7 +3355,7 @@ function rPreview(m){
 
   m.innerHTML=`
   <!-- Action Bar (Joist-style) -->
-  <div style="background:#fff;border-bottom:1px solid #e5e5e0;display:flex;align-items:stretch;flex-shrink:0;">
+  <div class="pv-bar" style="background:#fff;border-bottom:1px solid #e5e5e0;display:flex;align-items:stretch;flex-shrink:0;">
     <button onclick="S.previewRef=null;render()" style="padding:10px 14px;background:none;border:none;border-right:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;white-space:nowrap;">← Back</button>
     <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#111;">${isI?'Invoice':'Estimate'} #${doc.ref}</div>
     <button onclick="${isI?'editI':'editE'}('${doc.ref}')" style="padding:10px 14px;background:none;border:none;border-left:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;">Edit</button>
