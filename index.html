@@ -2056,12 +2056,15 @@ function showEstModal(){
       ${pt?`
       <div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Job photos</div>
       <div style="font-size:12px;color:#888;">Photos appear on the quote the customer sees. Add site photos, close-ups of the work area etc.</div></div>
-      ${photos.length<10?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has 10 photos, which is the maximum.</div>'}
+      ${_isIPad()?(photos.length<10?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has 10 photos, which is the maximum.</div>'):''}
       <div class="photo-grid">
         ${photos.map((p,i)=>`<div class="p-thumb"><img src="${p.data}" onclick="viewPhoto('${p.data}')"><button class="p-del" onclick="removePhoto(${i})">×</button></div>`).join('')}
+        ${!_isIPad()&&photos.length<10?`<div class="p-add" onclick="openPhotos()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Add photo</span></div>`:''}
       </div>
       ${photos.length===0?`<div style="margin-top:14px;padding:24px;text-align:center;border:1.5px dashed #ddd;border-radius:8px;color:#888;">
         <div style="font-size:13px;margin-bottom:10px;">No photos yet</div>
+        ${_isIPad()?'':`<button class="bg" onclick="openPhotos()">Upload or take photo</button>
+        <div style="font-size:11px;margin-top:8px;">On mobile tap to use your camera directly</div>`}
       </div>`:''}
       `:''}
       ${prt?`
@@ -2897,6 +2900,7 @@ async function _shrinkExistingPhotos(){
     if((p.data||'').length>_PHOTO_TARGET*1.4){try{p.data=await _photoFromSrc(p.data,_PHOTO_MAXDIM,0.72);}catch(e){}}
   }
 }
+function _isIPad(){try{var u=navigator.userAgent||'';return /iPad/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}catch(e){return false;}}
 async function handlePhotos(input){
   var files=Array.from(input.files||[]);input.value='';
   if(!files.length)return;
