@@ -2782,9 +2782,7 @@ async function enqPostLookup(quiet){
     var city=document.getElementById('ne2-city'),county=document.getElementById('ne2-county');
     var town=d.admin_district||'';
     if(city&&!city.value.trim()&&town)city.value=town;
-    var cty=d.admin_county||(d.pfa&&!/police|metropolitan|city of london/i.test(d.pfa)?d.pfa:'');
-    if(county&&!county.value.trim()&&cty)county.value=cty;
-    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'')+(cty?', '+cty:'');}
+    if(st){st.style.color='#276749';st.textContent='Postcode found'+(town?': '+town:'');}
   }catch(e){if(st)st.textContent='';}
 }
 function toggleBillingDiff(){
@@ -4735,12 +4733,12 @@ function buildDesktopHtml(doc){
     +'<th style="padding:8px 0;text-align:right;font-size:13px;font-weight:700;color:#111;">Total</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table>'
     +'<div style="display:flex;justify-content:flex-end;margin-top:8px;">'
-    +'<table style="min-width:200px;border-collapse:collapse;">'
+    +'<table style="width:48%;min-width:250px;border-collapse:collapse;">'
     +(markup>0?'<tr><td style="padding:5px 0;font-size:14px;color:#222;">Markup</td><td style="padding:5px 0 5px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(markup)+'</td></tr>':'')
     +(discount>0?'<tr><td style="padding:5px 0;font-size:14px;color:#222;">Discount</td><td style="padding:5px 0 5px 20px;text-align:right;font-size:14px;color:#222;">-'+fmt(discount)+'</td></tr>':'')
-    +'<tr style="border-top:1px solid #e0e0e0;"><td style="padding:7px 0;font-size:15px;font-weight:700;">Subtotal</td><td style="padding:7px 0 7px 20px;text-align:right;font-size:15px;font-weight:700;">'+fmt(sub+markup-discount)+'</td></tr>'
-    +(vat>0?'<tr><td style="padding:5px 0;font-size:14px;color:#222;">VAT (20%)</td><td style="padding:5px 0 5px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(vat)+'</td></tr>':'')
-    +'<tr style="border-top:2px solid #111;"><td style="padding:8px 0;font-size:16px;font-weight:700;">Total</td><td style="padding:8px 0 8px 20px;text-align:right;font-size:16px;font-weight:700;">'+fmt(grand)+'</td></tr>'
+    +'<tr style="border-bottom:1.5px solid #444;"><td style="padding:8px 0;font-size:15px;font-weight:700;">Subtotal</td><td style="padding:7px 0 7px 20px;text-align:right;font-size:15px;font-weight:700;">'+fmt(sub+markup-discount)+'</td></tr>'
+    +(vat>0?'<tr style="border-bottom:1.5px solid #444;"><td style="padding:8px 0;font-size:14px;color:#222;">VAT (20%)</td><td style="padding:5px 0 5px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(vat)+'</td></tr>':'')
+    +'<tr><td style="padding:8px 0;font-size:15px;font-weight:700;">Total</td><td style="padding:8px 0 8px 20px;text-align:right;font-size:15px;font-weight:700;">'+fmt(grand)+'</td></tr>'
     +(deposit>0?'<tr><td style="padding:4px 0;font-size:14px;color:#222;">Deposit Required</td><td style="padding:4px 0 4px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(deposit)+'</td></tr>':'')
     +(deposit>0?'<tr><td style="padding:4px 0;font-size:14px;color:#222;">Balance on Completion</td><td style="padding:4px 0 4px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(grand-deposit)+'</td></tr>':'')
     +'</table></div>'
