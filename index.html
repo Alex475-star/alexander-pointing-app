@@ -3638,6 +3638,10 @@ function openMoreSheet(ref){
   ov.onclick=e=>{if(e.target===ov)ov.remove();};
   ov.innerHTML=`<div class="send-box" style="width:100%;border-radius:16px 16px 0 0;padding:8px 0 20px;">
     <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:8px auto 16px;"></div>
+    <div onclick="this.closest('.send-overlay').remove();viewAsCustomer('${ref}')" style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid #f0f0ed;cursor:pointer;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div style="font-size:14px;font-weight:600;">View as customer</div>
+    </div>
     ${!isI&&!doc.signature?`<div onclick="S.modalTab='signature';editE('${ref}');this.closest('.send-overlay').remove()" style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid #f0f0ed;cursor:pointer;">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><path d="M20 20H7L3 3"/><path d="M6.5 6.5c1.5 1 3 3 3 5s-1.5 4-2.5 4"/></svg>
       <div style="font-size:14px;font-weight:600;">Sign</div>
@@ -4630,8 +4634,13 @@ function saveSettings(){
 // --- Customer Quote View -----------------------------------------------------
 let custSigCtx=null,custSigDrawing=false,custSigLast={x:0,y:0},custSigHasMark=false;
 
+function viewAsCustomer(ref){
+  window._custPreview=true;
+  showCustomerView(ref);
+  var pg=document.getElementById('cust-page');if(pg)pg.scrollTop=0;
+}
 function showCustomerView(ref){
-  const doc=S.estimates.find(e=>e.ref===ref);
+  const doc=S.estimates.find(e=>e.ref===ref)||(S.invoices||[]).find(e=>e.ref===ref);
   if(!doc){return;}
   const page=document.getElementById('cust-page');
   page.style.display='block';
@@ -4639,6 +4648,7 @@ function showCustomerView(ref){
 }
 
 function closeCustomerView(){
+  window._custPreview=false;
   document.getElementById('cust-page').style.display='none';
 }
 
@@ -4764,6 +4774,7 @@ function _pdfBusy(on){
 async function downloadPdf(){
   var doc=S.custDoc;if(!doc)return;
   var isInv=(doc.ref||'').indexOf('invoice')>=0;
+  if(isInv)return; // invoices are print-only
   var fname=(isInv?'Invoice-':'Quote-')+(doc.ref||'document').replace(/[^A-Za-z0-9_-]/g,'')+'.pdf';
   _pdfBusy(true);
   var fr=null,host=null,_sy=0;
@@ -4942,6 +4953,7 @@ function renderCustomerView(doc){
     }
   }
 
+  if(window._custPreview&&!isInv&&!alreadySigned){acceptHtml='<div style="padding:20px 16px;background:#fff8e1;margin-top:2px;text-align:center;font-size:15px;color:#78350f;font-weight:600;">Preview only &mdash; this is what your customer sees. Signing is switched off here.</div>';}
   // Line items
   var itemsHtml=lineItems.map(function(li){
     var lt=li.rate*li.qty;
@@ -4966,7 +4978,7 @@ function renderCustomerView(doc){
     // Calculate iframe height after load
     body.innerHTML=
       '<div class="no-print" style="background:#f8f8f8;border-bottom:1px solid #e0e0e0;padding:calc(10px + env(safe-area-inset-top,0px)) 20px 10px;display:flex;gap:10px;justify-content:flex-end;align-items:center;">'
-      +'<button data-dlpdf onclick="downloadPdf()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 18px;font-size:15px;cursor:pointer;">&#x2B07;&#xFE0F; Download PDF</button>'
+      +(isInv?'':'<button data-dlpdf onclick="downloadPdf()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 18px;font-size:15px;cursor:pointer;">&#x2B07;&#xFE0F; Download PDF</button>')
       +'<button onclick="printDesktop()" style="background:#276749;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:15px;font-weight:600;cursor:pointer;">&#x1F5A8;&#xFE0F; Print</button>'
       +'</div>'
       +'<div style="background:#e8e8e8;padding:30px 40px;min-height:100vh;">'
@@ -5011,8 +5023,7 @@ function renderCustomerView(doc){
     +'style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:16px;font-weight:600;color:#333;">'
     +'<span>More Actions</span><span style="font-size:14px;">&#9660;</span></div>'
     +'<div id="more-actions-dd" style="display:none;border-top:1px solid #e0e0e0;">'
-    +'<div data-dlpdf onclick="downloadPdf()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:16px;color:#333;">'
-    +'<span style="font-size:18px;">&#x2B07;&#xFE0F;</span>Download PDF</div>'
+    +(isInv?'':'<div data-dlpdf onclick="downloadPdf()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:16px;color:#333;"><span style="font-size:18px;">&#x2B07;&#xFE0F;</span>Download PDF</div>')
     +'<div onclick="printDesktop()" style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:16px;color:#333;">'
     +'<span style="font-size:18px;">&#x1F5A8;&#xFE0F;</span>View &amp; Print PDF</div>'
     +'</div></div>'
