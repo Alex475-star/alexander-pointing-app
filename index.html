@@ -1388,7 +1388,8 @@ function addAct(type,ref,name,extra){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);
   const val=doc?fmt(tot(doc.lineItems)):null;
   const viewNum=(type==='viewed'&&doc)?doc.viewCount:null;
-  S.activity.unshift({type,ref,name,val,viewNum,time:new Date().toISOString(),read:false});
+  const chaseN=(type==='chase'&&doc&&doc.chase)?doc.chase.n:null;
+  S.activity.unshift({type,ref,name,val,viewNum,chaseN,time:new Date().toISOString(),read:false});
   updateBadge();saveData();
 }
 
@@ -1727,8 +1728,8 @@ function rDash(m){
 }
 
 
-function actEmoji(t){return{emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️'}[t]||'📋';}
-function actBg(t){return{emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4'}[t]||'#f3f4f6';}
+function actEmoji(t){return{emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️',chase:'🔔'}[t]||'📋';}
+function actBg(t){return{emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed'}[t]||'#f3f4f6';}
 function actText(a){
   const isI=a.ref&&a.ref.includes('invoice');const dt=isI?'Invoice':'Estimate';
   const val=a.val?` — ${a.val}`:'';
@@ -1739,7 +1740,8 @@ function actText(a){
     created:`${dt} #${a.ref} created for ${a.name}${val}`,
     converted:`Estimate #${a.ref} converted to Invoice for ${a.name}${val}`,
     paid:`Invoice #${a.ref} marked as paid — ${a.name}${val}`,
-    signed:`✍️ ${a.name} signed and accepted Estimate #${a.ref}${val}`
+    signed:`✍️ ${a.name} signed and accepted Estimate #${a.ref}${val}`,
+    chase:`Chased ${a.name} — reminder emailed${a.chaseN?' ('+(a.chaseN===1?'chased once':'chased '+a.chaseN+' times')+')':''} for ${dt} #${a.ref}${val}`
   }[a.type]||`${dt} #${a.ref} — ${a.name}`;
 }
 function actDayLabel(iso){
