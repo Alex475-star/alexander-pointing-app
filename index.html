@@ -2941,7 +2941,7 @@ async function syncVisitDates(){
   }catch(e){}
 }
 
-function _isPad(){try{if(localStorage.getItem('apl_force_pad')==='1')return true;}catch(e){}try{return window.innerWidth>=700&&window.matchMedia('(pointer:coarse)').matches;}catch(e){return false;}}
+function _isPad(){try{if(localStorage.getItem('apl_force_pad')==='1')return true;}catch(e){}try{if(window.innerWidth<700)return false;var ua=navigator.userAgent||'',tp=navigator.maxTouchPoints||0;if(/iPad/.test(ua))return true;if(navigator.platform==='MacIntel'&&tp>1)return true;if(/Android/.test(ua)&&!/Mobile/.test(ua))return true;return window.matchMedia('(pointer:coarse)').matches;}catch(e){return false;}}
 function _padNav(pad){
   var app=document.getElementById('app'),el=document.getElementById('pad-nav');
   if(!pad){if(el)el.remove();return;}
