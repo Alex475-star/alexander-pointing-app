@@ -1629,7 +1629,7 @@ function rSplit(m,kind){
   <div class="topbar sp-bar"><h1>${isInv?'Invoices':'Estimates'}</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="exportToExcel()">Export</button><button class="bg" onclick="${isInv?'openNewInv()':'openNE()'}">+ New ${isInv?'Invoice':'Estimate'}</button></div></div>
   <div class="split${_listHidden()?' nolist':''}">
     <div class="split-l">
-      <div class="pad-lh"><button class="pad-ico" onclick="togList()" aria-label="Show or hide the list">${NAVSVG}</button><span class="pad-lt">${isInv?'Invoices':'Estimates'}</span><button class="pad-plus" onclick="${isInv?'openNewInv()':'openNE()'}" aria-label="New">+</button></div>
+      <div class="pad-lh"><button class="pad-ico" onclick="togList()" aria-label="Show or hide the list">${NAVSVG}</button><span class="pad-lt">${isInv?'Invoices':'Estimates'}</span><button class="pad-plus" onclick="${isInv?'openNewInv()':'(_isPad()?openNewEnquiry():openNE())'}" aria-label="New">+</button></div>
       <div class="tabs">${tabs.map(t=>`<div class="tab ${cur===t?'active':''}" onclick="${setTab(t)}">${t}</div>`).join('')}</div>
       <div class="split-tools"><input class="si" placeholder="${_isPad()?(isInv?'Search all invoices':'Search all estimates'):'Search name, address or #'}" value="${_esc(isInv?(S.iq||''):(S.sq||''))}" oninput="spSearch('${kind}',this.value)"></div>
       <div id="sp-body">${_spListHtml(fl,kind,S.previewRef)}</div>
@@ -2355,12 +2355,13 @@ function _enqWhenLabel(){
 }
 function openNewEnquiry(preDate,preTime){
   clearModals();
-  _ENQ={date:'',time:'',dur:60,busy:false};_VP.day='';_VP.time='';_VP.dur=60;
+  _ENQ={date:'',time:'',dur:60,visit:true,busy:false};_VP.day='';_VP.time='';_VP.dur=60;
   var f=function(id,label,ph,extra){return '<div class="fl"><label>'+label+'</label><input class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="off" '+(extra||'')+'></div>';};
   var ov=document.createElement('div');ov.className='modal-overlay';
   ov.innerHTML='<div class="modal" style="max-width:500px;">'
    +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" id="ne2-save" onclick="saveEnquiry()">Create Quote</button></div></div>'
    +'<div class="modal-body">'
+   +'<div class="fl"><label>Book a site visit?</label><div style="display:flex;"><button type="button" id="ne2-vy" onclick="enqVisit(true)" style="flex:1;height:44px;border:1px solid #276749;border-radius:8px 0 0 8px;background:#276749;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">Yes</button><button type="button" id="ne2-vn" onclick="enqVisit(false)" style="flex:1;height:44px;border:1px solid #276749;border-left:none;border-radius:0 8px 8px 0;background:#fff;color:#276749;font-size:15px;font-weight:600;cursor:pointer;">No</button></div></div>'
    +f('ne2-name','Full Name','Customer full name','autocapitalize="words" autocorrect="off" oninput="capWords(this)"')
    +f('ne2-mobile','Mobile Number','Mobile number','type="tel" inputmode="tel"')
    +f('ne2-mobile2','Phone Number 2','Home or other number','type="tel" inputmode="tel"')
@@ -2369,7 +2370,7 @@ function openNewEnquiry(preDate,preTime){
    +f('ne2-a2','Address Line 2','Area / estate','autocapitalize="words" oninput="capWords(this)"')
    +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County','autocapitalize="words" oninput="capWords(this)"')+'</div>'
    +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
-   +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
+   +'<div class="fl" id="ne2-vrow"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
   document.body.appendChild(ov);
@@ -2470,7 +2471,7 @@ async function saveEnquiry(){
   var miss=[];
   if(!name)miss.push('name');
   if(email&&email.indexOf('@')<1)miss.push('a valid email address (or leave the email empty)');
-  if(!_ENQ.date||!_ENQ.time)miss.push('visit date and time');
+  if(_ENQ.visit!==false&&(!_ENQ.date||!_ENQ.time))miss.push('visit date and time');
   if(miss.length){alert('Please add: '+miss.join(', ')+'.');return;}
   _ENQ.busy=true;var btn=document.getElementById('ne2-save');if(btn){btn.disabled=true;btn.textContent='Creating...';}
   var sa=[a1,a2,city,county,post].filter(Boolean).join(', ');
@@ -2482,20 +2483,21 @@ async function saveEnquiry(){
     if(!cl.phone&&mobile2)cl.phone=mobile2;
     if(!cl.serviceAddress){cl.serviceAddress=sa;if(!cl.address)cl.address=sa;}
   }
-  var today=_ENQ.date;
-  var exp=_addDays(_ENQ.date,90);
+  var today=(_ENQ.visit!==false)?_ENQ.date:_ymd(new Date());
+  var exp=_addDays(today,90);
   var ne={ref:'aplquote'+S.nextQ,date:today,dateInput:today,expiryDate:exp,
     clientName:name,address:sa,serviceAddress:sa,phone:mobile2,mobile:mobile,email:email,
     lineItems:[],notes:'',privateNotes:notes?('Directions: '+notes):'',photos:[],
     vat:S.co.defaultVat||false,status:'PENDING',isNew:true,
     markupVal:0,markupType:'pct',discountVal:0,discountType:'pct',
     depositVal:0,depositType:'pct',
-    quoteFooter:S.co.quoteFooter||'',visitAt:_ENQ.date+'T'+_ENQ.time,visitDur:_ENQ.dur||60};
+    quoteFooter:S.co.quoteFooter||'',};if(_ENQ.visit!==false){ne.visitAt=_ENQ.date+'T'+_ENQ.time;ne.visitDur=_ENQ.dur||60;}
   S.ne=ne;S.billingDiff=false;S.neOrig={ref:ne.ref,name:name};
   clearModals();
   var ok=await saveEst();
   _ENQ.busy=false;
   if(ok===false)return;
+  if(_ENQ.visit===false){toast('Quote '+ne.ref+' created');try{editE(ne.ref);}catch(e){}return;}
   var calOk=false;
   try{
     var desc=[].concat(mobile?['Mobile: '+mobile]:[],mobile2?['Phone 2: '+mobile2]:[],email?['Email: '+email]:[],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
@@ -2967,6 +2969,13 @@ function devInfoHtml(){
   return '<div style="background:#fff;border-radius:12px;margin:0 14px 12px;padding:14px 16px;font-size:12px;color:#666;line-height:1.7;"><div style="font-size:13px;font-weight:700;color:#111;margin-bottom:6px;">Device check</div>'+rows.map(function(r){return '<div><b>'+r[0]+':</b> '+_esc(r[1])+'</div>';}).join('')+'<button onclick="try{localStorage.setItem(\'apl_force_pad\',\''+(fp?'0':'1')+'\');}catch(e){}location.reload()" style="margin-top:10px;padding:10px 14px;border-radius:8px;border:1px solid #276749;background:#f0faf4;color:#276749;font-weight:600;font-size:14px;">'+(fp?'Stop forcing iPad layout':'Force iPad layout')+'</button></div>';
 }
 function _pvRender(){var d=document.getElementById('split-detail');rPreview(d||document.getElementById('main-area'));}
+function enqVisit(v){
+  _ENQ.visit=!!v;
+  var y=document.getElementById('ne2-vy'),n=document.getElementById('ne2-vn'),r=document.getElementById('ne2-vrow');
+  if(y){y.style.background=v?'#276749':'#fff';y.style.color=v?'#fff':'#276749';}
+  if(n){n.style.background=v?'#fff':'#276749';n.style.color=v?'#276749':'#fff';}
+  if(r)r.style.display=v?'':'none';
+}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
