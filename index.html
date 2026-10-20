@@ -1525,6 +1525,7 @@ function rMore(m){
 
     
 
+    ${devInfoHtml()}
     <div style="text-align:center;font-size:11px;color:#aaa;padding:10px;">Alexander Pointing Ltd · App v1.0</div>
   </div>`;
 }
@@ -2953,6 +2954,13 @@ function _padNav(pad){
 }
 function togList(){try{localStorage.setItem('apl_list_hidden',localStorage.getItem('apl_list_hidden')==='1'?'0':'1');}catch(e){}var sp=document.querySelector('.split');if(sp)sp.classList.toggle('nolist',_listHidden());}
 function _listHidden(){try{return localStorage.getItem('apl_list_hidden')==='1';}catch(e){return false;}}
+
+function devInfoHtml(){
+  var fp='';try{fp=localStorage.getItem('apl_force_pad')==='1';}catch(e){}
+  var c=function(q){try{return window.matchMedia(q).matches;}catch(e){return '?';}};
+  var rows=[['Build','20 Oct, iPad layout v3'],['Screen width',window.innerWidth+' x '+window.innerHeight],['iPad layout on',String(_isPad())+(fp?' (forced)':'')],['Platform',navigator.platform||'?'],['Touch points',String(navigator.maxTouchPoints||0)],['Coarse pointer',String(c('(pointer:coarse)'))],['Browser',(navigator.userAgent||'').slice(0,90)]];
+  return '<div style="background:#fff;border-radius:12px;margin:0 14px 12px;padding:14px 16px;font-size:12px;color:#666;line-height:1.7;"><div style="font-size:13px;font-weight:700;color:#111;margin-bottom:6px;">Device check</div>'+rows.map(function(r){return '<div><b>'+r[0]+':</b> '+_esc(r[1])+'</div>';}).join('')+'<button onclick="try{localStorage.setItem(\'apl_force_pad\',\''+(fp?'0':'1')+'\');}catch(e){}location.reload()" style="margin-top:10px;padding:10px 14px;border-radius:8px;border:1px solid #276749;background:#f0faf4;color:#276749;font-weight:600;font-size:14px;">'+(fp?'Stop forcing iPad layout':'Force iPad layout')+'</button></div>';
+}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
