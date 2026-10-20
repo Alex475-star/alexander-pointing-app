@@ -388,6 +388,7 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 /* --- Customer Quote View --- */
 .cust-page{position:fixed;inset:0;background:#f5f5f3;overflow-y:auto;z-index:2000;display:none;}
 .cust-header{background:#1a2332;padding:calc(16px + env(safe-area-inset-top,0px)) 20px 16px;display:flex;align-items:center;justify-content:space-between;}
+@media(max-width:768px){.cust-header{padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px;}.cust-header .cust-note{display:none;}#cust-logo-display{height:26px !important;}}
 .cust-logo{color:#fff;font-size:16px;font-weight:700;line-height:1.2;}
 .cust-logo span{color:#4ade80;}
 .cust-body{max-width:640px;margin:0 auto;padding:20px 16px 40px;}
@@ -463,7 +464,7 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
   <div class="cust-header">
     <div class="cust-logo"><img id="cust-logo-display" src="" style="height:44px;object-fit:contain;display:block;"></div>
     <div style="display:flex;align-items:center;gap:12px;">
-      <div style="color:rgba(255,255,255,0.5);font-size:11px;text-align:right;">Secure Quote<br>View</div>
+      <div class="cust-note" style="color:rgba(255,255,255,0.5);font-size:11px;text-align:right;">Secure Quote<br>View</div>
       <button onclick="closeCustomerView()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Close Preview</button>
     </div>
   </div>
@@ -4954,8 +4955,9 @@ function renderCustomerView(doc){
     var lt=li.rate*li.qty;
     return'<div style="padding:14px 0;border-top:1px solid #e0e0e0;">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:'+(li.desc?'6px':'0')+';">'
-      +'<div style="font-size:16px;font-weight:600;color:#111;flex:1;">'+li.name+'</div>'
-      +(lt>0?'<div style="font-size:16px;font-weight:700;color:#111;white-space:nowrap;">'+fmt(lt)+'</div>':'')
+      +'<div style="font-size:16px;font-weight:500;color:#111;flex:1;">'+li.name+'</div>'
+      +'<div style="font-size:16px;color:#111;width:44px;text-align:center;flex-shrink:0;">'+li.qty+'</div>'
+      +'<div style="font-size:16px;color:#111;white-space:nowrap;min-width:84px;text-align:right;">'+(lt>0?fmt(lt):'')+'</div>'
       +'</div>'
       +(li.desc?'<div style="font-size:16px;color:#111;line-height:1.55;">'+li.desc+'</div>':'')
       +'</div>';
@@ -5010,9 +5012,19 @@ function renderCustomerView(doc){
   }
 
   body.style.maxWidth='';
-  body.innerHTML=
+  var _deskMode=(window._custMode||'desk')==='desk';
+  var _tog='<div class="no-print" style="padding:10px 12px;background:#f5f5f3;"><div style="display:flex;background:#e4e4e6;border-radius:9px;padding:2px;">'
+    +'<button onclick="setCustMode(\'desk\')" style="flex:1;border:none;border-radius:7px;padding:9px 0;font-size:15px;font-weight:600;cursor:pointer;'+(_deskMode?'background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,0.2);':'background:transparent;color:#555;')+'">Desktop</button>'
+    +'<button onclick="setCustMode(\'mob\')" style="flex:1;border:none;border-radius:7px;padding:9px 0;font-size:15px;font-weight:600;cursor:pointer;'+(!_deskMode?'background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,0.2);':'background:transparent;color:#555;')+'">Mobile</button>'
+    +'</div></div>';
+  var _deskUrl='';
+  if(_deskMode){_deskUrl=URL.createObjectURL(new Blob([buildDesktopHtml(doc)],{type:'text/html'}));}
+  var _deskBlock='<div id="desk-wrap" style="background:#e8e8e8;padding:8px 0;overflow:hidden;position:relative;"><div id="desk-scale" style="width:794px;transform-origin:0 0;margin-left:8px;">'
+    +'<iframe id="desk-iframe" src="'+_deskUrl+'" onload="fitDesk()" style="width:794px;height:1123px;border:none;background:#fff;display:block;box-shadow:0 1px 6px rgba(0,0,0,0.2);"></iframe></div></div>'
+    +(tcHtml||acceptHtml?'<div style="background:#fff;margin-top:2px;">'+tcHtml+acceptHtml+'</div>':'');
+  body.innerHTML=_deskMode?(_tog+_deskBlock):(_tog
     // More Actions bar (replaces old toolbar)
-    ''
+    +''
 
     // Document — full width, no card styling, like Joist
     +'<div id="printable-doc" style="background:#fff;padding:20px 16px;font-family:Helvetica Neue,Arial,sans-serif;color:#222;font-size:16px;box-sizing:border-box;max-width:680px;margin:0 auto;">'
@@ -5027,10 +5039,10 @@ function renderCustomerView(doc){
     +'<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:4px;">'+c.companyName+'</div>'
     +(c.address?'<div style="font-size:15px;color:#222;">'+c.address+'</div>':'')
     +((c.city||c.postcode)?'<div style="font-size:15px;color:#222;">'+(c.city?c.city+' ':'')+(c.postcode||'')+'</div>':'')
-    +(c.phone?'<div style="font-size:15px;color:#1565c0;">Phone: '+c.phone+'</div>':'')
-    +(c.mobile?'<div style="font-size:15px;color:#1565c0;">'+c.mobile+'</div>':'')
-    +(c.email?'<div style="font-size:15px;color:#1565c0;">Email: '+c.email+'</div>':'')
-    +(c.website?'<div style="font-size:15px;color:#1565c0;">Web: '+c.website+'</div>':'')
+    +(c.phone?'<div style="font-size:15px;color:#222;">Phone: '+c.phone+'</div>':'')
+    +(c.mobile?'<div style="font-size:15px;color:#222;">'+c.mobile+'</div>':'')
+    +(c.email?'<div style="font-size:15px;color:#222;">Email: '+c.email+'</div>':'')
+    +(c.website?'<div style="font-size:15px;color:#222;">Web: '+c.website+'</div>':'')
     +'</div></div>'
 
     // Prepared For
@@ -5044,14 +5056,14 @@ function renderCustomerView(doc){
     // Quote/Invoice details
     +'<div style="padding:14px 0;border-top:1px solid #e0e0e0;">'
     +(isInv?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:16px;"><span style="color:#222;">Payment terms</span><span style="color:#333;">Within 5 days</span></div>':'')
-    +'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:16px;"><span style="color:#222;">'+(isInv?'Invoice #':'Quote #')+'</span><span style="font-weight:600;color:#111;">'+doc.ref+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:16px;"><span style="color:#222;">'+(isInv?'Invoice #':'Quote #')+'</span><span style="color:#333;">'+doc.ref+'</span></div>'
     +'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:16px;"><span style="color:#222;">Date</span><span style="color:#333;">'+fdLong(doc.date)+'</span></div>'
     +(doc.expiryDate&&!isInv?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:16px;"><span style="color:#222;">Valid Until</span><span style="color:#333;">'+fdLong(doc.expiryDate)+'</span></div>':'')
     +'</div>'
 
     // Line items
-    +'<div style="padding-top:14px;border-top:1px solid #e0e0e0;">'
-    +'<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:0px;">Description</div>'
+    +'<div style="padding:14px 0 8px;border-top:1px solid #e0e0e0;border-bottom:2px solid #111;display:flex;justify-content:space-between;gap:12px;font-size:16px;font-weight:700;color:#111;">'
+    +'<div style="flex:1;">Description</div><div style="width:44px;text-align:center;">Qty</div><div style="min-width:84px;text-align:right;">Total</div>'
     +'</div>'
     +itemsHtml
 
@@ -5093,7 +5105,8 @@ function renderCustomerView(doc){
     +photosHtml
 
     // T&C and Accept
-    +(tcHtml||acceptHtml?tcHtml+acceptHtml:'');
+    +(tcHtml||acceptHtml?tcHtml+acceptHtml:''));
+  if(_deskMode)setTimeout(fitDesk,60);
 
   if(!document.getElementById('print-styles')){
     var st=document.createElement('style');st.id='print-styles';
@@ -5126,6 +5139,20 @@ function renderCustomerView(doc){
   },200);
 }
 
+
+function setCustMode(m){window._custMode=m;if(S.custDoc)renderCustomerView(S.custDoc);var pg=document.getElementById('cust-page');if(pg)pg.scrollTop=0;}
+function fitDesk(){
+  var f=document.getElementById('desk-iframe'),sc=document.getElementById('desk-scale'),w=document.getElementById('desk-wrap');
+  if(!f||!sc||!w)return;
+  try{
+    var h=f.contentDocument.body.scrollHeight+40;
+    f.style.height=h+'px';
+    var k=(w.clientWidth-16)/794;if(k>1)k=1;
+    sc.style.transform='scale('+k+')';
+    w.style.height=(h*k+16)+'px';
+  }catch(e){}
+}
+window.addEventListener('resize',function(){try{fitDesk();}catch(e){}});
 
 function clearCustSig(){
   if(!custSigCtx)return;
