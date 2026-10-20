@@ -1976,7 +1976,7 @@ function showEstModal(){
         <div style="display:flex;align-items:flex-start;gap:8px;">
           <div style="flex:1;">
             <input class="fi" value="${li.name}" oninput="S.ne.lineItems[${i}].name=this.value" placeholder="Item name" style="font-weight:600;font-size:15px;margin-bottom:6px;height:44px;">
-            <textarea class="ta" oninput="S.ne.lineItems[${i}].desc=this.value" placeholder="Description (optional)" style="min-height:50px;font-size:13px;color:#555;resize:vertical;line-height:1.5;">${li.desc||''}</textarea>${tidyHtml()}
+            <textarea class="ta" oninput="S.ne.lineItems[${i}].desc=this.value" placeholder="Description" style="min-height:50px;font-size:13px;color:#555;resize:vertical;line-height:1.5;">${li.desc||''}</textarea>${tidyHtml()}
           </div>
           <button onclick="rmLI(${i})" style="background:transparent;border:1px solid #fecdd3;border-radius:6px;color:#c62828;font-size:18px;width:40px;height:40px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
@@ -2209,13 +2209,13 @@ function openNewClientForm(){
       <div style="background:#f5f5f3;padding:6px 10px;font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;border-radius:5px;margin:12px 0 8px;">Basic Info</div>
       <div class="fl"><label>Email</label><input class="fi" id="nc-email" type="email" placeholder="Email address" autocapitalize="none" autocomplete="off" autocorrect="off"></div>
       <div class="fl"><label>Mobile Number</label><input class="fi" id="nc-mobile" type="tel" inputmode="tel" placeholder="Mobile number" autocomplete="off"></div>
-      <div class="fl"><label>Home Number</label><input class="fi" id="nc-home" type="tel" inputmode="tel" placeholder="Home number (optional)" autocomplete="off"></div>
+      <div class="fl"><label>Home Number</label><input class="fi" id="nc-home" type="tel" inputmode="tel" placeholder="Home number" autocomplete="off"></div>
 
       <div style="background:#f5f5f3;padding:6px 10px;font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;border-radius:5px;margin:12px 0 8px;">
         Service Address <span style="font-size:9px;font-weight:400;text-transform:none;">(where work is carried out)</span>
       </div>
       <div class="fl"><label>Address Line 1</label><input class="fi" id="nc-sa1" placeholder="Street address" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>
-      <div class="fl"><label>Address Line 2</label><input class="fi" id="nc-sa2" placeholder="Area / estate (optional)" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>
+      <div class="fl"><label>Address Line 2</label><input class="fi" id="nc-sa2" placeholder="Area / estate" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>
       <div class="tc">
         <div class="fl"><label>Town / City</label><input class="fi" id="nc-scity" placeholder="Town" autocapitalize="words" autocomplete="off" oninput="capWords(this)"></div>
         <div class="fl"><label>Postcode</label><input class="fi" id="nc-spost" placeholder="Postcode" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;" oninput="capUpper(this)"></div>
@@ -2231,7 +2231,7 @@ function openNewClientForm(){
       <div id="billing-section" style="display:${S.billingDiff?'block':'none'};">
         <div style="background:#f5f5f3;padding:6px 10px;font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;border-radius:5px;margin-bottom:8px;">Billing Address</div>
         <div class="fl"><label>Address Line 1</label><input class="fi" id="nc-ba1" placeholder="Street address" autocapitalize="words" oninput="capWords(this)"></div>
-        <div class="fl"><label>Address Line 2</label><input class="fi" id="nc-ba2" placeholder="Area / estate (optional)" autocapitalize="words" oninput="capWords(this)"></div>
+        <div class="fl"><label>Address Line 2</label><input class="fi" id="nc-ba2" placeholder="Area / estate" autocapitalize="words" oninput="capWords(this)"></div>
         <div class="tc">
           <div class="fl"><label>Town / City</label><input class="fi" id="nc-bcity" placeholder="Town" autocapitalize="words" oninput="capWords(this)"></div>
           <div class="fl"><label>Postcode</label><input class="fi" id="nc-bpost" placeholder="Postcode" autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this)"></div>
@@ -2263,13 +2263,13 @@ function openNewEnquiry(preDate,preTime){
    +'<div class="modal-top"><h2>New Enquiry</h2><div style="display:flex;gap:8px;"><button class="bs" onclick="clearModals()">Cancel</button><button class="bg" id="ne2-save" onclick="saveEnquiry()">Create Quote</button></div></div>'
    +'<div class="modal-body">'
    +f('ne2-name','Full Name','Customer full name','autocapitalize="words" autocorrect="off" oninput="capWords(this)"')
-   +f('ne2-mobile','Mobile Number','Mobile number (optional)','type="tel" inputmode="tel"')
-   +f('ne2-mobile2','Phone Number 2','Home or other number (optional)','type="tel" inputmode="tel"')
-   +f('ne2-email','Email','Email address (optional)','type="email" autocapitalize="none" autocorrect="off"')
-   +f('ne2-a1','Address Line 1','Street address (optional)','autocapitalize="words" oninput="capWords(this)"')
-   +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
-   +'<div class="tc">'+f('ne2-city','Town / City','Town (optional)','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
-   +f('ne2-post','Postcode','Postcode (optional)','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
+   +f('ne2-mobile','Mobile Number','Mobile number','type="tel" inputmode="tel"')
+   +f('ne2-mobile2','Phone Number 2','Home or other number','type="tel" inputmode="tel"')
+   +f('ne2-email','Email','Email address','type="email" autocapitalize="none" autocorrect="off"')
+   +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
+   +f('ne2-a2','Address Line 2','Area / estate','autocapitalize="words" oninput="capWords(this)"')
+   +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County','autocapitalize="words" oninput="capWords(this)"')+'</div>'
+   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
    +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
