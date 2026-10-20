@@ -1594,6 +1594,7 @@ function _spRow(e,kind,sel){
       <div class="sp-top"><span class="sp-name">${_esc(e.clientName)}</span><span class="sp-amt">${fmt(calcGrandTotal(e))}</span></div>
       <div class="sp-sub"><span>${fdShort(e.date)} · #${_esc(e.ref)}</span><span class="sp-r">${ico}<span class="dl-pill" style="background:${p.bg};color:${p.c};">${p.t}</span></span></div>
       ${_waitTag(e,kind)}
+      ${kind==='inv'&&e.status==='PAID'?`<div class="dl-review" style="padding:6px 0 0;background:none;">${e.reviewSent?`<span style="font-size:12px;color:#276749;">✅ Review link sent</span> <button onclick="event.stopPropagation();openReviewSheet('${e.ref}')" style="padding:4px 10px;font-size:11px;margin-left:6px;">Send again</button>`:`<button onclick="event.stopPropagation();openReviewSheet('${e.ref}')">⭐ Send review link</button>`}</div>`:''}
     </div></div></div>`;
 }
 function _spListHtml(fl,kind,selRef){
@@ -1978,7 +1979,7 @@ function docRowHtml(e,kind){
         <div class="dl-amtc"><div class="dl-amt">${fmt(calcGrandTotal(e))}</div>${seen}${wait}</div>
         <div class="dl-btns"><button class="dl-btn dl-open" onclick="event.stopPropagation();showPreview('${e.ref}')">Open</button><button class="dl-btn dl-edit" onclick="event.stopPropagation();${ed}">Edit</button></div>
       </div>
-      ${kind==='inv'&&e.status==='PAID'&&!e.reviewSent?`<div class="dl-review"><button onclick="event.stopPropagation();sendReviewLink('${e.ref}')">⭐ Send review link to ${_esc(e.clientName)}</button></div>`:kind==='inv'&&e.status==='PAID'&&e.reviewSent?`<div class="dl-review">✅ Review link sent</div>`:''}
+      ${kind==='inv'&&e.status==='PAID'&&!e.reviewSent?`<div class="dl-review"><button onclick="event.stopPropagation();openReviewSheet('${e.ref}')">⭐ Send review link to ${_esc(e.clientName)}</button></div>`:kind==='inv'&&e.status==='PAID'&&e.reviewSent?`<div class="dl-review">✅ Review link sent</div>`:''}
     </div>
   </div>`;
 }
@@ -3574,10 +3575,13 @@ ${_canChase(doc,isI)?`<button onclick="openChase('${doc.ref}')" style="display:f
       <svg width="22" height="22" viewBox="0 0 24 24" fill="#3d3d40"><path d="M7 2h10v5H7z"/><path d="M4 8h16a2 2 0 012 2v7h-4v-3H6v3H2v-7a2 2 0 012-2z"/><path d="M7 15h10v7H7z"/><rect x="9" y="17" width="6" height="1.4" fill="#fff"/><rect x="9" y="19.4" width="6" height="1.4" fill="#fff"/></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Print</span>
     </button>
-    <button onclick="${isI?`markPaid('${doc.ref}')`:`convertToInv('${doc.ref}')`}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
+    ${isI&&doc.status==='PAID'?`    <button onclick="openReviewSheet('${doc.ref}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#3d3d40" stroke="#3d3d40" stroke-width="1" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.5 17 14.4 18.2 21.3 12 18 5.8 21.3 7 14.4 2 9.5 8.9 8.6"/></svg>
+      <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">${doc.reviewSent?'Review sent':'Review'}</span>
+    </button>`:`<button onclick="${isI?`markPaid('${doc.ref}')`:`convertToInv('${doc.ref}')`}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
       <svg width="26" height="22" viewBox="0 0 28 24" fill="#3d3d40"><path d="M1 13.5l7-6.5v3.8h4v5.4H8v3.8z"/><text x="13.5" y="19.5" font-size="19" font-weight="800" font-family="Arial,Helvetica,sans-serif">$</text></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">${isI?'Mark Paid':'Invoice'}</span>
-    </button>
+    </button>`}
     <button onclick="openMoreSheet('${doc.ref}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;cursor:pointer;">
       <svg width="24" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d3d40" stroke-width="1.8"><circle cx="4.5" cy="12" r="2.3"/><circle cx="12" cy="12" r="2.3"/><circle cx="19.5" cy="12" r="2.3"/></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">More</span>
@@ -3706,6 +3710,8 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
     <!-- Notes -->
     ${doc.notes?`<div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px;font-size:14px;color:#333;line-height:1.7;"><span style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px;">Notes</span>${doc.notes.replace(/\n/g,'<br>')}</div>`:''}
+
+    ${isI?_guaranteeBlock(doc,c,_aplLogo()):''}
 
     <!-- Terms -->
     <div style="margin-top:16px;padding:12px 14px;background:#f8f9fa;border-radius:6px;font-size:12.5px;color:#222;line-height:1.7;border-left:3px solid #999;">${isI?(doc.invoiceFooter||c.invoiceFooter||''):(doc.quoteFooter||c.quoteFooter||'')}</div>
@@ -4844,6 +4850,81 @@ function custClearSig(){
   if(c){c.getContext('2d').clearRect(0,0,c.width,c.height);}
 }
 
+function _guaranteeBlock(doc,c,logoSrc){
+  if(!doc||!doc.guarantee||!String(doc.ref||'').includes('invoice'))return '';
+  var issueDate=doc.date?new Date(doc.date):new Date();
+  var validUntil=new Date(issueDate);validUntil.setFullYear(validUntil.getFullYear()+2);
+  var certNum='GRT-'+doc.ref.replace(/[^0-9]/g,'');
+  var lab='font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;margin-bottom:3px;';
+  var cond=doc.status==='PAID'
+    ?'<div style="background:#f0faf4;border:1px solid #a7f3d0;border-radius:6px;padding:10px 12px;"><div style="font-size:14px;color:#276749;font-weight:700;margin-bottom:2px;">Payment Received</div><div style="font-size:14px;color:#14532d;line-height:1.6;">Thank you. Payment has been received in full and this guarantee is now valid.</div></div>'
+    :'<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 12px;"><div style="font-size:14px;color:#92400e;font-weight:700;margin-bottom:2px;">Conditional on Payment</div><div style="font-size:14px;color:#78350f;line-height:1.6;">This guarantee becomes valid upon receipt of payment in full. Until then it is void.</div></div>';
+  return '<div style="padding:16px 0;border-top:1px solid #e0e0e0;break-inside:avoid;">'
+    +'<div style="border:2px solid #276749;border-radius:8px;overflow:hidden;">'
+    +'<div style="background:linear-gradient(135deg,#1a2332,#276749);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +(logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="height:36px;object-fit:contain;">':'<strong style="color:#fff;">Alexander Pointing Ltd</strong>')
+    +'<div style="text-align:right;"><div style="font-size:16px;font-weight:800;color:#fff;letter-spacing:2px;">GUARANTEE</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,0.6);">CERTIFICATE OF WORKMANSHIP</div></div></div>'
+    +'<div style="padding:16px;background:#fff;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e0e0e0;">'
+    +'<div><div style="'+lab+'">Certificate No.</div><div style="font-size:15px;font-weight:700;">'+certNum+'</div></div>'
+    +'<div><div style="'+lab+'">Issued To</div><div style="font-size:15px;font-weight:700;">'+_esc(doc.clientName||'')+'</div></div>'
+    +'<div><div style="'+lab+'">Property</div><div style="font-size:15px;color:#333;">'+_esc(doc.serviceAddress||doc.address||'As per invoice')+'</div></div>'
+    +'<div><div style="'+lab+'">Valid Until</div><div style="font-size:15px;color:#333;">'+validUntil.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
+    +'</div>'
+    +'<div style="font-size:14px;color:#222;line-height:1.7;margin-bottom:12px;">'
+    +'<p style="margin:0 0 8px;"><strong>What is covered:</strong> All repointing works to the external elevations against defects or premature decay of mortar for 2 years from the invoice date. Remedial works within 28 days of written notification.</p>'
+    +'<p style="margin:0 0 6px;"><strong>Exclusions:</strong> Natural wear, structural change, third party damage, acts of God, leaking gutters/downpipes, repointing by others, pollutants (salt, moss, algae, exhaust fumes).</p>'
+    +'<p style="margin:0;">Not transferable upon sale of the property.</p>'
+    +'</div>'
+    +cond
+    +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:13px;color:#444;">Issued by Alexander Pointing Ltd — Company No: '+((c&&c.companyNo)||'87688895')+'</div>'
+    +'</div></div></div>';
+}
+function _aplLogo(){return (document.getElementById('apl-logo-img')||{src:''}).src;}
+function _reviewMsg(inv){
+  return 'Dear '+inv.clientName+',\n\nIt was a pleasure working with you. We hope you are happy with the repointing work carried out at your property.\n\nIf you are happy with the service, we would really appreciate a quick Google review - it helps other customers find us:\n'+(S.co.googleReviewUrl||'')+'\n\nThank you,\nIain Alexander\nAlexander Pointing Ltd\nTel: 0161 327 2843';
+}
+function _reviewUrlOk(){var u=S.co.googleReviewUrl||'';if(!u||u.includes('YOUR-GOOGLE')){alert('Please add your Google Review URL in Settings first.');return false;}return true;}
+async function reviewShare(ref){
+  var inv=S.invoices.find(function(i){return i.ref===ref;});if(!inv||!_reviewUrlOk())return;
+  var msg=_reviewMsg(inv),done=false;
+  try{
+    if(navigator.share){await navigator.share({title:'How did we do? — Alexander Pointing Ltd',text:msg});done=true;}
+    else{await navigator.clipboard.writeText(msg);toast('Message copied — paste it into WhatsApp or a text');done=true;}
+  }catch(e){
+    if(e&&e.name!=='AbortError'){try{await navigator.clipboard.writeText(msg);toast('Message copied — paste it into WhatsApp or a text');done=true;}catch(e2){}}
+  }
+  if(done){inv.reviewSent=true;inv.reviewSentAt=new Date().toISOString();saveData();}
+  var o=document.querySelector('.send-overlay');if(o)o.remove();render();
+}
+async function reviewCopy(ref){
+  var inv=S.invoices.find(function(i){return i.ref===ref;});if(!inv||!_reviewUrlOk())return;
+  try{await navigator.clipboard.writeText(_reviewMsg(inv));toast('Review message copied');}catch(e){toast('Could not copy','#c62828');return;}
+  inv.reviewSent=true;inv.reviewSentAt=new Date().toISOString();saveData();
+  var o=document.querySelector('.send-overlay');if(o)o.remove();render();
+}
+async function reviewEmail(ref){
+  var o=document.querySelector('.send-overlay');if(o)o.remove();
+  await sendReviewLink(ref);
+}
+function openReviewSheet(ref){
+  var inv=S.invoices.find(function(i){return i.ref===ref;});if(!inv)return;
+  var ov=document.createElement('div');ov.className='modal-overlay send-overlay';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var row='display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid #f0f0ed;cursor:pointer;';
+  var ic=function(bg,t){return '<div style="width:40px;height:40px;border-radius:10px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:20px;">'+t+'</div>';};
+  var noUrl=!S.co.googleReviewUrl||S.co.googleReviewUrl.includes('YOUR-GOOGLE');
+  ov.innerHTML='<div class="send-box" style="width:100%;border-radius:16px 16px 0 0;padding:8px 0 20px;">'
+   +'<div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:8px auto 12px;"></div>'
+   +'<div style="padding:0 20px 10px;"><div style="font-size:15px;font-weight:700;">⭐ Ask for a Google review</div><div style="font-size:12px;color:#888;margin-top:2px;">'+_esc(inv.clientName)+(inv.reviewSent?' · already sent — sending again is fine':'')+'</div></div>'
+   +(noUrl?'<div style="margin:0 20px 10px;background:#fff8e1;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e;">Add your Google Review link in Settings first.</div>':'')
+   +'<div onclick="reviewEmail(\''+ref+'\')" style="'+row+(inv.email?'':'opacity:.45;')+'">'+ic('#f0faf4','✉️')+'<div><div style="font-size:14px;font-weight:600;">By Email</div><div style="font-size:12px;color:#888;">'+(inv.email?_esc(inv.email):'No email on this invoice')+'</div></div></div>'
+   +'<div onclick="reviewShare(\''+ref+'\')" style="'+row+'">'+ic('#e3f2fd','💬')+'<div><div style="font-size:14px;font-weight:600;">By WhatsApp / iMessage / other</div><div style="font-size:12px;color:#888;">Opens the share sheet</div></div></div>'
+   +'<div onclick="reviewCopy(\''+ref+'\')" style="'+row+'border-bottom:none;">'+ic('#f5f5f3','📋')+'<div><div style="font-size:14px;font-weight:600;">Copy message</div><div style="font-size:12px;color:#888;">Paste it anywhere</div></div></div>'
+   +'<div style="padding:0 16px;margin-top:8px;"><button onclick="this.closest(\'.send-overlay\').remove()" class="bs" style="width:100%;padding:12px;">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+}
 function buildDesktopHtml(doc){
   var c=S.co;
   var logoSrc=(document.getElementById('apl-logo-img')||{src:''}).src;
@@ -4928,6 +5009,7 @@ function buildDesktopHtml(doc){
     +(deposit>0?'<tr><td style="padding:4px 0;font-size:14px;color:#222;">Balance on Completion</td><td style="padding:4px 0 4px 20px;text-align:right;font-size:14px;color:#222;">'+fmt(grand-deposit)+'</td></tr>':'')
     +'</table></div>'
     +notesHtml
+    +_guaranteeBlock(doc,c,logoSrc)
     +bdHtml
     +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:14px;font-weight:600;color:#111;">'
     +'<div>Company No. '+(c.companyNumber||c.companyNo||'87688895')+'</div>'
@@ -5060,36 +5142,7 @@ function renderCustomerView(doc){
   }
 
   // Guarantee
-  var guaranteeHtml='';
-  if(isInv&&doc.guarantee){
-    var issueDate=doc.date?new Date(doc.date):new Date();
-    var validUntil=new Date(issueDate);validUntil.setFullYear(validUntil.getFullYear()+2);
-    var certNum='GRT-'+doc.ref.replace(/[^0-9]/g,'');
-    guaranteeHtml='<div style="padding:16px 0;border-top:1px solid #e0e0e0;">'
-      +'<div style="border:2px solid #276749;border-radius:8px;overflow:hidden;">'
-      +'<div style="background:linear-gradient(135deg,#1a2332,#276749);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
-      +(logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="height:36px;object-fit:contain;">':'<strong style="color:#fff;">Alexander Pointing Ltd</strong>')
-      +'<div style="text-align:right;"><div style="font-size:16px;font-weight:800;color:#fff;letter-spacing:2px;">GUARANTEE</div>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,0.6);">CERTIFICATE OF WORKMANSHIP</div></div></div>'
-      +'<div style="padding:16px;background:#fff;">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e0e0e0;">'
-      +'<div><div style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;margin-bottom:3px;">Certificate No.</div><div style="font-size:15px;font-weight:700;">'+certNum+'</div></div>'
-      +'<div><div style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;margin-bottom:3px;">Issued To</div><div style="font-size:15px;font-weight:700;">'+doc.clientName+'</div></div>'
-      +'<div><div style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;margin-bottom:3px;">Property</div><div style="font-size:15px;color:#333;">'+(doc.serviceAddress||doc.address||'As per invoice')+'</div></div>'
-      +'<div><div style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;margin-bottom:3px;">Valid Until</div><div style="font-size:15px;color:#333;">'+validUntil.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
-      +'</div>'
-      +'<div style="font-size:14px;color:#222;line-height:1.7;margin-bottom:12px;">'
-      +'<p style="margin:0 0 8px;"><strong>What is covered:</strong> All repointing works to the external elevations against defects or premature decay of mortar for 2 years from the invoice date. Remedial works within 28 days of written notification.</p>'
-      +'<p style="margin:0 0 6px;"><strong>Exclusions:</strong> Natural wear, structural change, third party damage, acts of God, leaking gutters/downpipes, repointing by others, pollutants (salt, moss, algae, exhaust fumes).</p>'
-      +'<p style="margin:0;">Not transferable upon sale of the property.</p>'
-      +'</div>'
-      +'<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 12px;">'
-      +'<div style="font-size:14px;color:#92400e;font-weight:700;margin-bottom:2px;">Conditional on Payment</div>'
-      +'<div style="font-size:14px;color:#78350f;line-height:1.6;">This guarantee becomes valid upon receipt of payment in full. Until then it is void.</div>'
-      +'</div>'
-      +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:13px;color:#444;">Issued by Alexander Pointing Ltd — Company No: '+(c.companyNo||'87688895')+'</div>'
-      +'</div></div></div>';
-  }
+  var guaranteeHtml=(isInv&&doc.guarantee)?_guaranteeBlock(doc,c,logoSrc):'';
 
   // Notes
   var notesHtml=doc.notes?'<div style="padding:16px 0;border-top:1px solid #e0e0e0;">'
