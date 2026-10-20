@@ -1272,6 +1272,7 @@ function loadData(){
   },100);
   updateBadge();render();
   loadFromSupabase();
+  setTimeout(syncVisitDates,6000);if(!window._visitSync)window._visitSync=setInterval(syncVisitDates,300000);
   // Poll every 60 seconds for real-time updates (quote views, signs etc)
   if(!window._pollInterval){
     window._pollInterval=setInterval(async function(){
@@ -2385,9 +2386,9 @@ async function saveEnquiry(){
     if(!cl.phone&&mobile2)cl.phone=mobile2;
     if(!cl.serviceAddress){cl.serviceAddress=sa;if(!cl.address)cl.address=sa;}
   }
-  var today=new Date().toISOString().split('T')[0];
-  var exp=new Date(Date.now()+90*24*60*60*1000).toISOString().split('T')[0];
-  var ne={ref:'aplquote'+S.nextQ,date:new Date().toISOString(),dateInput:today,expiryDate:exp,
+  var today=_ENQ.date;
+  var exp=_addDays(_ENQ.date,90);
+  var ne={ref:'aplquote'+S.nextQ,date:today,dateInput:today,expiryDate:exp,
     clientName:name,address:sa,serviceAddress:sa,phone:mobile2,mobile:mobile,email:email,
     lineItems:[],notes:'',privateNotes:notes?('Directions: '+notes):'',photos:[],
     vat:S.co.defaultVat||false,status:'PENDING',isNew:true,
@@ -2829,6 +2830,26 @@ function tidyUndo(a){
   _tidyBox(wrap,'');
 }
 function tidyKeep(b){var wrap=b.closest('.tidy-wrap');wrap._sugg='';_tidyBox(wrap,'');}
+
+function _addDays(ymd,n){var d=new Date(ymd+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+async function syncVisitDates(){
+  try{
+    if(!sessionStorage.getItem('apl_auth'))return;
+    var qs=(S.estimates||[]).filter(function(q){return q.visitAt&&q.status==='PENDING'&&!q.emailed&&!(S.modal==='ne'&&S.ne&&S.ne.ref===q.ref);});
+    if(!qs.length)return;
+    var changed=0,withEv=qs.filter(function(q){return q.calEventId;});
+    if(withEv.length){
+      try{
+        var from=new Date(Date.now()-86400000),to=new Date(Date.now()+68*86400000);
+        var r=await apiFetch(SUPA_URL+'/cal/events?from='+encodeURIComponent(from.toISOString())+'&to='+encodeURIComponent(to.toISOString()),{headers:authHdr()});
+        if(r.ok){var d=await r.json(),by={};(d.events||[]).forEach(function(e){by[e.id]=e;});
+          withEv.forEach(function(q){var e=by[q.calEventId];if(e&&!e.allDay&&e.start){var v=e.start.slice(0,16);if(v!==q.visitAt){q.visitAt=v;changed++;}}});}
+      }catch(e){}
+    }
+    qs.forEach(function(q){var vd=q.visitAt.slice(0,10);if(String(q.dateInput||q.date||'').slice(0,10)!==vd){q.date=vd;q.dateInput=vd;q.expiryDate=_addDays(vd,90);changed++;}});
+    if(changed){saveData();if(!S.modal)render();}
+  }catch(e){}
+}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
