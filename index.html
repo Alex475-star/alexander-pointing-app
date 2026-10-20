@@ -487,6 +487,57 @@ body.nav-hidden .sb,body.nav-hidden .bottom-nav{display:none!important;}
   .dl-top~.content .dl-addr,.dl-top~.content .dl-btns,.dl-top~.content .dl-wait{display:none;}
   .dl-top~.content .dl-empty{margin:12px 14px;}
 }
+
+#pad-nav{display:none;}
+.pad-lh,.pad-ico2{display:none;}
+.pv-l{display:none;}
+.sp-r{display:inline-flex;align-items:center;gap:8px;}
+body.pad .app{flex-direction:column !important;}
+body.pad .sb,body.pad .bottom-nav{display:none !important;}
+body.pad .mn{flex:1;min-height:0;padding-bottom:0 !important;}
+body.pad #pad-nav{display:flex;justify-content:center;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 8px;background:#fff;flex-shrink:0;}
+.pad-pill{display:flex;background:#e8e8eb;border-radius:12px;padding:3px;}
+.pad-pill button{position:relative;border:none;background:none;font-size:16px;font-family:inherit;padding:9px 20px;border-radius:10px;color:#111;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pad-pill button.on{background:#fff;color:#1a8a3c;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+.pad-dot{position:absolute;top:6px;right:8px;width:9px;height:9px;border-radius:50%;background:#e02424;}
+body.pad #main-area>.sp-bar{display:none;}
+body.pad .split-l{width:330px;background:#f3f3f5;}
+body.pad .split.nolist .split-l{display:none;}
+body.pad .split.nolist .pad-ico2{display:block;}
+body.pad .pad-lh{display:grid;grid-template-columns:48px 1fr 48px;align-items:center;padding:8px 10px;background:#fff;border-bottom:1px solid #dcdcd6;order:0;}
+body.pad .pad-ico,body.pad .pad-ico2{background:none;border:none;color:#1a8a3c;padding:0;min-width:40px;min-height:40px;cursor:pointer;}
+body.pad .pad-ico2{padding:0 6px;border-right:1px solid #e5e5e0;}
+body.pad .pad-lt{text-align:center;font-size:18px;font-weight:700;}
+body.pad .pad-plus{background:none;border:none;color:#1a8a3c;font-size:38px;font-weight:300;line-height:1;cursor:pointer;justify-self:end;}
+body.pad .split-tools{order:1;padding:12px 14px 4px;background:transparent;}
+body.pad .split-tools .si{min-height:42px;border-radius:12px;padding:8px 12px 8px 40px;font-size:17px;background:#e4e4e7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238a8a90' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='16.5' y1='16.5' x2='21' y2='21'/%3E%3C/svg%3E") no-repeat 13px center;}
+body.pad .split-l .tabs{order:2;position:static;margin:8px 14px 6px;padding:2px;background:#e4e4e7;border:none;border-radius:9px;}
+body.pad .split-l .tab{flex:1;text-align:center;border:none;border-radius:7px;margin:0;padding:7px 0;font-size:15px;font-weight:500;color:#111;text-transform:capitalize;}
+body.pad .split-l .tab.active{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.18);}
+body.pad #sp-body{order:3;}
+body.pad .split-l>*:last-child:not(#sp-body){order:4;}
+body.pad .sp-month{background:#f3f3f5;font-size:19px;font-weight:700;padding:18px 14px 8px;}
+body.pad .sp-row{padding:15px 14px 13px;}
+body.pad .sp-name{font-size:18px;font-weight:600;}
+body.pad .sp-amt{font-size:18px;font-weight:600;}
+body.pad .sp-sub{font-size:15px;margin-top:7px;}
+body.pad .sp-sub .dl-pill{font-size:12px;padding:3px 9px;border-radius:5px;}
+body.pad .sp-sub svg{width:22px;height:22px;margin:0;}
+body.pad .sp-row .dl-wait{display:none;}
+body.pad .pv-hn{display:none;}
+body.pad .pv-s{display:none;}
+body.pad .pv-l{display:inline;}
+body.pad .pv-bar{min-height:58px;}
+body.pad #split-detail div[style*="grid-template-columns:repeat"] button{padding:14px 8px !important;}
+body.pad #split-detail div[style*="grid-template-columns:repeat"] button svg{width:26px;height:26px;}
+body.pad #split-detail div[style*="grid-template-columns:repeat"] button span{font-size:14px !important;}
+body.pad .split-l .tab,.dl-tabs .tab{text-transform:lowercase !important;}
+body.pad .split-l .tab::first-letter,.dl-tabs .tab::first-letter{text-transform:uppercase;}
+body.pad .pv-bar>div{font-size:18px !important;font-weight:700 !important;}
+body.pad .pv-edit{font-size:17px !important;font-weight:600;border-left:none !important;padding:10px 20px !important;}
+
+body.pad #split-detail div[style*="grid-template-columns:repeat"] button svg{width:auto;height:26px;}
+#split-detail div[style*="grid-template-columns:repeat"] button:not([onclick^="openChase"]) span{color:#3d3d40 !important;}
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
@@ -1456,6 +1507,7 @@ function rMore(m){
     <!-- Menu items -->
     <div style="background:#fff;border-radius:12px;margin:0 14px 12px;overflow:hidden;">
       ${[
+        ...(_isPad()?[{icon:'🏠',label:'Dashboard',action:"nav('dashboard')"},{icon:'👤',label:'Clients',action:"nav('clients')"},{icon:'⬇️',label:'Export to Excel',action:'exportToExcel()'}]:[]),
         {icon:'⚙️',label:'Settings',action:"nav('settings')"},
         {icon:'📋',label:'Items',action:"nav('items')"},
         {icon:'🗑️',label:'Recently deleted'+(trashCount()?' ('+trashCount()+')':''),action:"nav('trash')"},
@@ -1534,7 +1586,7 @@ function _spRow(e,kind,sel){
   return `<div class="row-wrap"><div class="row-del-bg" onclick="deleteDoc('${e.ref}','${kind==='inv'?'inv':'est'}')">Delete</div><div class="row-content">
     <div class="sp-row ${sel?'sel':''}" onclick="selDoc('${e.ref}')">
       <div class="sp-top"><span class="sp-name">${_esc(e.clientName)}</span><span class="sp-amt">${fmt(calcGrandTotal(e))}</span></div>
-      <div class="sp-sub"><span>${fdShort(e.date)} · #${_esc(e.ref)}${ico}</span><span class="dl-pill" style="background:${p.bg};color:${p.c};">${p.t}</span></div>
+      <div class="sp-sub"><span>${fdShort(e.date)} · #${_esc(e.ref)}</span><span class="sp-r">${ico}<span class="dl-pill" style="background:${p.bg};color:${p.c};">${p.t}</span></span></div>
       ${_waitTag(e,kind)}
     </div></div></div>`;
 }
@@ -1568,11 +1620,12 @@ function rSplit(m,kind){
   const cur=isInv?(S.itab||'ACTIVE'):S.stab;
   const setTab=t=>isInv?`S.itab='${t}';S.previewRef=null;render()`:`S.stab='${t}';S.previewRef=null;render()`;
   m.innerHTML=`
-  <div class="topbar"><h1>${isInv?'Invoices':'Estimates'}</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="exportToExcel()">Export</button><button class="bg" onclick="${isInv?'openNewInv()':'openNE()'}">+ New ${isInv?'Invoice':'Estimate'}</button></div></div>
-  <div class="split">
+  <div class="topbar sp-bar"><h1>${isInv?'Invoices':'Estimates'}</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="exportToExcel()">Export</button><button class="bg" onclick="${isInv?'openNewInv()':'openNE()'}">+ New ${isInv?'Invoice':'Estimate'}</button></div></div>
+  <div class="split${_listHidden()?' nolist':''}">
     <div class="split-l">
+      <div class="pad-lh"><button class="pad-ico" onclick="togList()" aria-label="Show or hide the list">${NAVSVG}</button><span class="pad-lt">${isInv?'Invoices':'Estimates'}</span><button class="pad-plus" onclick="${isInv?'openNewInv()':'openNE()'}" aria-label="New">+</button></div>
       <div class="tabs">${tabs.map(t=>`<div class="tab ${cur===t?'active':''}" onclick="${setTab(t)}">${t}</div>`).join('')}</div>
-      <div class="split-tools"><input class="si" placeholder="Search name, address or #" value="${_esc(isInv?(S.iq||''):(S.sq||''))}" oninput="spSearch('${kind}',this.value)"></div>
+      <div class="split-tools"><input class="si" placeholder="${_isPad()?(isInv?'Search all invoices':'Search all estimates'):'Search name, address or #'}" value="${_esc(isInv?(S.iq||''):(S.sq||''))}" oninput="spSearch('${kind}',this.value)"></div>
       <div id="sp-body">${_spListHtml(fl,kind,S.previewRef)}</div>
       ${trashLinkHtml()}
     </div>
@@ -1593,6 +1646,7 @@ function _zoomFor(on){
   }catch(e){}
 }
 function render(){
+  var _pd=_isPad();document.body.classList.toggle('pad',_pd);_padNav(_pd);
   _renderInner();
   _zoomFor(!!S.previewRef);
 }
@@ -2886,6 +2940,19 @@ async function syncVisitDates(){
     if(changed){saveData();if(!S.modal)render();}
   }catch(e){}
 }
+
+function _isPad(){try{if(localStorage.getItem('apl_force_pad')==='1')return true;}catch(e){}try{return window.innerWidth>=700&&window.matchMedia('(pointer:coarse)').matches;}catch(e){return false;}}
+function _padNav(pad){
+  var app=document.getElementById('app'),el=document.getElementById('pad-nav');
+  if(!pad){if(el)el.remove();return;}
+  if(!app)return;
+  if(!el){el=document.createElement('div');el.id='pad-nav';app.insertBefore(el,app.firstChild);}
+  var v=S.view||'dashboard',on=(v==='estimates'||v==='invoices'||v==='activity')?v:'more',un=0;try{un=unread();}catch(e){}
+  var it=[['estimates','Estimates',"nav('estimates')"],['invoices','Invoices',"nav('invoices')"],['cal','Calendar','openCalendar()'],['activity','Activity',"nav('activity')"],['more','More',"nav('more')"]];
+  el.innerHTML='<div class="pad-pill">'+it.map(function(x){return '<button class="'+(x[0]===on?'on':'')+'" onclick="'+x[2]+'">'+x[1]+(x[0]==='activity'&&un>0?'<i class="pad-dot"></i>':'')+'</button>';}).join('')+'</div>';
+}
+function togList(){try{localStorage.setItem('apl_list_hidden',localStorage.getItem('apl_list_hidden')==='1'?'0':'1');}catch(e){}var sp=document.querySelector('.split');if(sp)sp.classList.toggle('nolist',_listHidden());}
+function _listHidden(){try{return localStorage.getItem('apl_list_hidden')==='1';}catch(e){return false;}}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
@@ -3465,15 +3532,15 @@ function rPreview(m){
   m.innerHTML=`
   <!-- Action Bar (Joist-style) -->
   <div class="pv-bar" style="background:#fff;border-bottom:1px solid #e5e5e0;display:flex;align-items:stretch;flex-shrink:0;">
-    <button onclick="S.previewRef=null;render()" style="padding:10px 14px;background:none;border:none;border-right:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;white-space:nowrap;">← Back</button>
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#111;">${isI?'Invoice':'Estimate'} #${doc.ref}</div>
-    <button onclick="${isI?'editI':'editE'}('${doc.ref}')" style="padding:10px 14px;background:none;border:none;border-left:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;">Edit</button>
+    <button onclick="S.previewRef=null;render()" style="padding:10px 14px;background:none;border:none;border-right:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;white-space:nowrap;">← Back</button><button class="pad-ico2" onclick="togList()" aria-label="Show the list">${NAVSVG}</button>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#111;"><span class="pv-hn">${isI?'Invoice':'Estimate'} </span>#${doc.ref}</div>
+    <button onclick="${isI?'editI':'editE'}('${doc.ref}')" class="pv-edit" style="padding:10px 14px;background:none;border:none;border-left:1px solid #e5e5e0;color:#276749;font-size:13px;cursor:pointer;"><span class="pv-s">Edit</span><span class="pv-l">Edit ${isI?'Invoice':'Estimate'}</span></button>
   </div>
 
   <!-- Quick Action Bar -->
   <div style="background:#fff;border-bottom:1px solid #e5e5e0;display:grid;grid-template-columns:repeat(${_canChase(doc,isI)?5:4},1fr);flex-shrink:0;">
     <button onclick="openSendSheet('${doc.ref}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#3d3d40" stroke="#3d3d40" stroke-width="1.6" stroke-linejoin="round"><polygon points="22 2 15 22 11 13 2 9 22 2"/><line x1="22" y1="2" x2="11" y2="13" stroke="#fff" stroke-width="1.4"/></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Send</span>
     </button>
 ${_canChase(doc,isI)?`<button onclick="openChase('${doc.ref}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
@@ -3481,15 +3548,15 @@ ${_canChase(doc,isI)?`<button onclick="openChase('${doc.ref}')" style="display:f
       <span style="font-size:10px;font-weight:600;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;">Chase</span>
     </button>`:''}
     <button onclick="printDoc()" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#3d3d40"><path d="M7 2h10v5H7z"/><path d="M4 8h16a2 2 0 012 2v7h-4v-3H6v3H2v-7a2 2 0 012-2z"/><path d="M7 15h10v7H7z"/><rect x="9" y="17" width="6" height="1.4" fill="#fff"/><rect x="9" y="19.4" width="6" height="1.4" fill="#fff"/></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Print</span>
     </button>
     <button onclick="${isI?`markPaid('${doc.ref}')`:`convertToInv('${doc.ref}')`}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;border-right:1px solid #e5e5e0;cursor:pointer;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      <svg width="26" height="22" viewBox="0 0 28 24" fill="#3d3d40"><path d="M1 13.5l7-6.5v3.8h4v5.4H8v3.8z"/><text x="13.5" y="19.5" font-size="19" font-weight="800" font-family="Arial,Helvetica,sans-serif">$</text></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">${isI?'Mark Paid':'Invoice'}</span>
     </button>
     <button onclick="openMoreSheet('${doc.ref}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:none;border:none;cursor:pointer;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      <svg width="24" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d3d40" stroke-width="1.8"><circle cx="4.5" cy="12" r="2.3"/><circle cx="12" cy="12" r="2.3"/><circle cx="19.5" cy="12" r="2.3"/></svg>
       <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;">More</span>
     </button>
   </div>
@@ -5332,6 +5399,8 @@ function applyMobileLayout(){
   let fl=document.getElementById('navtog-float');
   if(!fl){fl=document.createElement('button');fl.id='navtog-float';fl.innerHTML=NAVSVG;fl.onclick=toggleNav;document.body.appendChild(fl);}
   fl.style.display=(hid&&!tb)?'block':'none';
+  var _pd2=_isPad();document.body.classList.toggle('pad',_pd2);_padNav(_pd2);
+  if(_pd2){if(sb)sb.style.display='none';if(bn)bn.style.display='none';if(mn)mn.style.paddingBottom='';document.querySelectorAll('.navtog').forEach(function(x){x.style.display='none';});fl.style.display='none';}
 }
 window.addEventListener('resize',applyMobileLayout);
 applyMobileLayout();
