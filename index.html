@@ -540,6 +540,9 @@ body.pad #split-detail div[style*="grid-template-columns:repeat"] button svg{wid
 #split-detail div[style*="grid-template-columns:repeat"] button:not([onclick^="openChase"]) span{color:#3d3d40 !important;}
 
 body.pad .pv-doc{max-width:none !important;margin:0 auto;box-sizing:border-box;width:100%;}
+
+.add-line-btn{border-style:solid !important;}
+.client-box{border-style:solid !important;}
 </style>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
@@ -3604,7 +3607,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
     <!-- Document header -->
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0;padding-bottom:6px;">
       <div style="flex-shrink:0;">
-        ${logoSrc&&logoSrc.length>100?`<img src="${logoSrc}" style="height:90px;max-width:240px;object-fit:contain;display:block;">`:`<div style="font-size:20px;font-weight:800;color:#1a2332;">${c.companyName}</div>`}
+        ${logoSrc&&logoSrc.length>100?`<img src="${logoSrc}" style="height:118px;max-width:320px;object-fit:contain;display:block;">`:`<div style="font-size:20px;font-weight:800;color:#1a2332;">${c.companyName}</div>`}
       </div>
       <div style="text-align:right;">
         <div style="font-size:12px;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Prepared For</div>
@@ -3617,7 +3620,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
     <!-- Row 2: Company details left, Quote# right -->
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:10px;margin-bottom:26px;padding-bottom:6px;">
       <div style="font-size:14px;">
-        <div style="font-weight:700;font-size:15px;color:#1a2332;margin-bottom:5px;">${c.companyName}</div>
+        <div style="font-weight:700;font-size:19px;color:#1a2332;margin-bottom:6px;">${c.companyName}</div>
         <div style="color:#333;line-height:1.9;">
           ${c.address?c.address+'<br>':''}
           ${c.city||''} ${c.postcode||''}<br>
@@ -3726,8 +3729,8 @@ function renderMobilePreview(doc,c,grand,showQty,showRate,showTotal){
     <!-- Header -->
     <div style="text-align:center;padding:16px;border-bottom:1px solid #eee;">
       <div style="font-size:13px;color:#444;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">${isI?'INVOICE':'QUOTE'}</div>
-      ${logoSrc&&logoSrc.length>100?`<img src="${logoSrc}" style="height:44px;object-fit:contain;display:block;margin:0 auto 10px;">`:''}
-      <div style="font-weight:700;font-size:16px;">${c.companyName}</div>
+      ${logoSrc&&logoSrc.length>100?`<img src="${logoSrc}" style="height:76px;max-width:80%;object-fit:contain;display:block;margin:0 auto 12px;">`:''}
+      <div style="font-weight:700;font-size:21px;">${c.companyName}</div>
       <div style="font-size:14px;color:#333;margin-top:4px;line-height:1.6;">
         ${c.address||''}<br>${c.city||''} ${c.postcode||''}<br>${c.phone||''}<br>${c.email||''}
       </div>
@@ -4869,7 +4872,7 @@ function buildDesktopHtml(doc){
 
   var notesHtml=doc.notes?'<div style="margin-top:14px;"><strong style="font-size:14px;color:#222;">Notes</strong><br><div style="font-size:14px;color:#333;line-height:1.6;margin-top:4px;">'+doc.notes.split('\n').join('<br>')+'</div></div>':'';
 
-  var logoImg=logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="max-height:110px;max-width:220px;object-fit:contain;">':'<strong style="font-size:16px;">'+c.companyName+'</strong>';
+  var logoImg=logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="max-height:140px;max-width:290px;object-fit:contain;">':'<strong style="font-size:16px;">'+c.companyName+'</strong>';
 
   return'<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Helvetica Neue,Arial,sans-serif;color:#222;background:#fff;padding:16mm 20mm;font-size:15px;max-width:210mm;margin:0 auto;}table{border-collapse:collapse;width:100%;}@media print{@page{size:A4;margin:0;}body{padding:14mm 16mm;max-width:100%;}}</style></head><body>'
@@ -4885,7 +4888,7 @@ function buildDesktopHtml(doc){
     +'<hr style="border:none;border-top:1px solid #e0e0e0;margin-bottom:18px;">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:24px;gap:16px;">'
     +'<div>'
-    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">'+c.companyName+'</div>'
+    +'<div style="font-size:19px;font-weight:700;margin-bottom:6px;">'+c.companyName+'</div>'
     +(c.address?'<div style="font-size:14px;color:#222;">'+c.address+'</div>':'')
     +((c.city||c.postcode)?'<div style="font-size:14px;color:#222;">'+(c.city?c.city+' ':'')+(c.postcode||'')+'</div>':'')
     +(c.phone?'<div style="font-size:14px;color:#222;">Phone: '+c.phone+'</div>':'')
@@ -5209,9 +5212,9 @@ function renderCustomerView(doc){
 
     // Logo + Company info (side by side, like Joist)
     +'<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
-    +(logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="max-height:50px;max-width:130px;object-fit:contain;flex-shrink:0;">':'')
+    +(logoSrc&&logoSrc.length>100?'<img src="'+logoSrc+'" style="max-height:80px;max-width:200px;object-fit:contain;flex-shrink:0;">':'')
     +'<div style="flex:1;">'
-    +'<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:4px;">'+c.companyName+'</div>'
+    +'<div style="font-size:21px;font-weight:700;color:#111;margin-bottom:5px;">'+c.companyName+'</div>'
     +(c.address?'<div style="font-size:15px;color:#222;">'+c.address+'</div>':'')
     +((c.city||c.postcode)?'<div style="font-size:15px;color:#222;">'+(c.city?c.city+' ':'')+(c.postcode||'')+'</div>':'')
     +(c.phone?'<div style="font-size:15px;color:#222;">Phone: '+c.phone+'</div>':'')
