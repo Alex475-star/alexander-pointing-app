@@ -1975,7 +1975,7 @@ function showEstModal(){
         <div style="display:flex;align-items:flex-start;gap:8px;">
           <div style="flex:1;">
             <input class="fi" value="${li.name}" oninput="S.ne.lineItems[${i}].name=this.value" placeholder="Item name" style="font-weight:600;font-size:15px;margin-bottom:6px;height:44px;">
-            <textarea class="ta" oninput="S.ne.lineItems[${i}].desc=this.value" placeholder="Description (optional)" style="min-height:50px;font-size:13px;color:#555;resize:vertical;line-height:1.5;">${li.desc||''}</textarea>
+            <textarea class="ta" oninput="S.ne.lineItems[${i}].desc=this.value" placeholder="Description (optional)" style="min-height:50px;font-size:13px;color:#555;resize:vertical;line-height:1.5;">${li.desc||''}</textarea>${tidyHtml()}
           </div>
           <button onclick="rmLI(${i})" style="background:transparent;border:1px solid #fecdd3;border-radius:6px;color:#c62828;font-size:18px;width:40px;height:40px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
@@ -2789,6 +2789,44 @@ async function enqPostLookup(quiet){
     if(st){st.style.color='#276749';st.textContent='Postcode found';}
   }catch(e){if(st)st.textContent='';}
 }
+
+function tidyHtml(){return '<div class="tidy-wrap" style="margin-top:6px;"><button type="button" class="tidy-btn" onclick="tidyRun(this)" style="background:#f0faf4;border:1px solid #276749;color:#276749;border-radius:6px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;">&#10024; Tidy wording</button><div class="tidy-out"></div></div>';}
+function _tidyBox(wrap,html){wrap.querySelector('.tidy-out').innerHTML=html;}
+async function tidyRun(btn,again){
+  var wrap=btn.closest('.tidy-wrap'),ta=wrap.previousElementSibling;
+  if(!ta||ta.tagName!=='TEXTAREA')return;
+  var txt=(ta.value||'').trim();
+  if(!txt){_tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#b45309;">Type a few words first, then tap Tidy wording.</div>');return;}
+  var holder=wrap.closest('.lir,.modal-body')||wrap.parentNode, nm=holder.querySelector('input.fi');
+  var prev=again?(wrap._sugg||''):'';
+  wrap._orig=txt;
+  _tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#666;">Tidying&hellip;</div>');
+  try{
+    var r=await apiFetch(SUPA_URL+'/ai/tidy',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify({text:txt,name:nm?nm.value:'',again:!!again,previous:prev})});
+    var j={};try{j=await r.json();}catch(e){}
+    if(!r.ok||!j.text){_tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#c62828;">'+_esc(j.message||'Could not tidy that just now. Try again.')+'</div>');return;}
+    wrap._sugg=j.text;
+    _tidyBox(wrap,'<div style="margin-top:8px;border:1px solid #276749;border-radius:8px;background:#f7fcf9;padding:10px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#276749;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Suggested wording</div>'
+      +'<div style="font-size:14px;color:#111;line-height:1.55;white-space:pre-wrap;">'+_esc(j.text)+'</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
+      +'<button type="button" onclick="tidyAccept(this)" style="background:#276749;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;">Accept</button>'
+      +'<button type="button" onclick="tidyKeep(this)" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer;">Keep mine</button>'
+      +'<button type="button" onclick="tidyRun(this.closest(\'.tidy-wrap\').querySelector(\'.tidy-btn\'),true)" style="background:#fff;color:#276749;border:1px solid #276749;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer;">Try again</button>'
+      +'</div></div>');
+  }catch(e){_tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#c62828;">Could not reach the wording tool. Check your connection and try again.</div>');}
+}
+function tidyAccept(b){
+  var wrap=b.closest('.tidy-wrap'),ta=wrap.previousElementSibling;
+  ta.value=wrap._sugg||ta.value; ta.dispatchEvent(new Event('input',{bubbles:true}));
+  _tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#276749;">Accepted. <a href="#" onclick="tidyUndo(this);return false;" style="color:#276749;font-weight:600;">Undo</a></div>');
+}
+function tidyUndo(a){
+  var wrap=a.closest('.tidy-wrap'),ta=wrap.previousElementSibling;
+  ta.value=wrap._orig||''; ta.dispatchEvent(new Event('input',{bubbles:true}));
+  _tidyBox(wrap,'');
+}
+function tidyKeep(b){var wrap=b.closest('.tidy-wrap');wrap._sugg='';_tidyBox(wrap,'');}
 function toggleBillingDiff(){
   S.billingDiff=!S.billingDiff;
   const toggle=document.getElementById('billing-toggle');
@@ -2849,7 +2887,7 @@ function addBlankLI(){
         <input class="fi" id="nli-name" placeholder="e.g. Front Elevation Repoint" autocapitalize="words" oninput="capWords(this)" style="height:44px;font-size:15px;">
       </div>
       <div class="fl"><label>Description (appears on quote)</label>
-        <textarea class="ta" id="nli-desc" style="min-height:100px;font-size:14px;line-height:1.6;" placeholder="Describe the work..."></textarea>
+        <textarea class="ta" id="nli-desc" style="min-height:100px;font-size:14px;line-height:1.6;" placeholder="Describe the work..."></textarea>${tidyHtml()}
       </div>
       <div class="fl"><label>Default Rate (£)</label>
         <input class="fi" id="nli-rate" type="number" inputmode="decimal" placeholder="0.00" style="width:160px;height:44px;font-size:15px;">
@@ -4077,7 +4115,7 @@ function openItemForm(idOrName){
         <input class="fi" id="item-name" value="${item?item.name:''}" placeholder="e.g. Front Elevation Repoint" autocapitalize="words" oninput="capWords(this)">
       </div>
       <div class="fl"><label>Full Description (appears on quote)</label>
-        <textarea class="ta" id="item-desc" style="min-height:120px;line-height:1.6;">${item?item.desc:''}</textarea>
+        <textarea class="ta" id="item-desc" style="min-height:120px;line-height:1.6;">${item?item.desc:''}</textarea>${tidyHtml()}
       </div>
       <div class="fl"><label>Default Rate (£) — leave blank if variable per job</label>
         <input class="fi" id="item-rate" type="number" inputmode="decimal" value="${item&&item.rate?item.rate:''}" placeholder="0.00" style="width:160px;">
