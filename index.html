@@ -2266,10 +2266,10 @@ function openNewEnquiry(preDate,preTime){
    +f('ne2-mobile','Mobile Number','Mobile number (optional)','type="tel" inputmode="tel"')
    +f('ne2-mobile2','Phone Number 2','Home or other number (optional)','type="tel" inputmode="tel"')
    +f('ne2-email','Email','Email address (optional)','type="email" autocapitalize="none" autocorrect="off"')
-   +f('ne2-a1','Address Line 1','Street address','autocapitalize="words" oninput="capWords(this)"')
+   +f('ne2-a1','Address Line 1','Street address (optional)','autocapitalize="words" oninput="capWords(this)"')
    +f('ne2-a2','Address Line 2','Area / estate (optional)','autocapitalize="words" oninput="capWords(this)"')
-   +'<div class="tc">'+f('ne2-city','Town / City','Town','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
-   +f('ne2-post','Postcode','Postcode','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
+   +'<div class="tc">'+f('ne2-city','Town / City','Town (optional)','autocapitalize="words" oninput="capWords(this)"')+f('ne2-county','County','County (optional)','autocapitalize="words" oninput="capWords(this)"')+'</div>'
+   +f('ne2-post','Postcode','Postcode (optional)','autocapitalize="characters" style="text-transform:uppercase;" oninput="capUpper(this);enqPostSoon()" onchange="enqPostLookup()"')+'<div id="ne2-pcmsg" style="font-size:12px;margin:-6px 0 10px;min-height:14px;"></div>'
    +'<div class="fl"><label>Visit Date &amp; Time</label><button type="button" id="ne2-when" onclick="openVisitPicker()" style="width:100%;height:44px;text-align:left;padding:0 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;color:#888;cursor:pointer;">Choose date and time</button></div>'
    +'<div class="fl"><label>Notes / Directions</label><textarea class="ta" id="ne2-notes" style="min-height:90px;" placeholder="e.g. off Walmersley Road, second turning on the left"></textarea></div>'
    +'</div></div>';
@@ -2371,9 +2371,6 @@ async function saveEnquiry(){
   var miss=[];
   if(!name)miss.push('name');
   if(email&&email.indexOf('@')<1)miss.push('a valid email address (or leave the email empty)');
-  if(!a1)miss.push('address line 1');
-  if(!city)miss.push('town / city');
-  if(!post)miss.push('postcode');
   if(!_ENQ.date||!_ENQ.time)miss.push('visit date and time');
   if(miss.length){alert('Please add: '+miss.join(', ')+'.');return;}
   _ENQ.busy=true;var btn=document.getElementById('ne2-save');if(btn){btn.disabled=true;btn.textContent='Creating...';}
