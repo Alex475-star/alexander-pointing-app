@@ -2807,6 +2807,8 @@ async function tidyRun(btn,again){
     if(!r.ok||!j.text){_tidyBox(wrap,'<div style="margin-top:6px;font-size:13px;color:#c62828;">'+_esc(j.message||'Could not tidy that just now. Try again.')+'</div>');return;}
     wrap._sugg=j.text;
     _tidyBox(wrap,'<div style="margin-top:8px;border:1px solid #276749;border-radius:8px;background:#f7fcf9;padding:10px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Your wording</div>'
+      +'<div style="font-size:14px;color:#888;line-height:1.55;white-space:pre-wrap;text-decoration:line-through;background:#fff;border:1px solid #e3e3e3;border-radius:6px;padding:8px;margin-bottom:10px;">'+_esc(txt)+'</div>'
       +'<div style="font-size:11px;font-weight:700;color:#276749;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Suggested wording</div>'
       +'<div style="font-size:14px;color:#111;line-height:1.55;white-space:pre-wrap;">'+_esc(j.text)+'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
