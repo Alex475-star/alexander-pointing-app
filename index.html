@@ -2503,7 +2503,7 @@ async function saveEnquiry(){
   try{
     var desc=[].concat(mobile?['Mobile: '+mobile]:[],mobile2?['Phone 2: '+mobile2]:[],email?['Email: '+email]:[],notes?['Directions: '+notes]:[],['APL quote '+ne.ref]).join('\n');
     var r=await apiFetch(SUPA_URL+'/cal/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({summary:'Site visit - '+name,start:_ENQ.date+'T'+_ENQ.time,durationMin:_ENQ.dur||60,location:sa,description:desc})});
-    if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;saveData();}calOk=true;}
+    if(r.ok){var d=await r.json();var q=S.estimates.find(function(x){return x.ref===ne.ref;});if(q){q.calEventId=d.id;q.calSynced={summary:'Site visit - '+name,location:sa,start:_ENQ.date+'T'+_ENQ.time};saveData();}calOk=true;}
   }catch(e){}
   if(typeof _CAL!=='undefined'&&_CAL.open)calRefresh();
   if(calOk)toast('Quote '+ne.ref+' created and visit added to your calendar');
@@ -2836,8 +2836,84 @@ function calEvent(k){
   if(isPhone)nums.forEach(function(x){h+='<a class="bg" style="text-decoration:none;display:inline-block;" href="tel:'+x.d+'">Call '+_vpEsc(x.t)+'</a>';});
   if(ref&&(S.estimates||[]).some(function(q){return q.ref===ref;}))h+='<button class="bg" onclick="calOpenQuote(\''+ref+'\')">Open quote</button>';
   if(e.location)h+='<a class="bs" style="text-decoration:none;display:inline-block;" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.location)+'">Directions</a>';
+  if(!e.allDay)h+='<button class="bs" onclick="calEdit(\''+k+'\')">Edit</button>';
+  h+='<button class="bs" style="color:#c62828;" onclick="calDelete(\''+k+'\')">Delete</button>';
   h+='</div></div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
+}
+
+function _calQuoteOf(e){var m=(e.description||'').match(/APL quote (aplquote\d+)/);return m?(S.estimates||[]).find(function(q){return q.ref===m[1];}):null;}
+function _calMins(e){try{var a=new Date(e.start),b=new Date(e.end);var d=Math.round((b-a)/60000);return d>0?d:60;}catch(x){return 60;}}
+function calEdit(k){
+  var e=_calKeys[k];if(!e||e.allDay)return;
+  var old=document.getElementById('cal-evd');if(old)old.remove();
+  var ov=document.createElement('div');ov.className='modal-overlay';ov.id='cal-evd';
+  var dur=_calMins(e),opts=[15,30,45,60,90,120,180,240,300,360,420,480];if(opts.indexOf(dur)<0){opts.push(dur);opts.sort(function(a,b){return a-b;});}
+  var q=_calQuoteOf(e);
+  var h='<div class="modal" style="max-width:460px;"><div class="modal-top"><h2 style="font-size:17px;">Edit visit</h2><button class="bs" onclick="document.getElementById(\'cal-evd\').remove()">Cancel</button></div><div class="modal-body">';
+  h+='<div class="fl"><label>Title</label><input class="fi" id="ce-title" value="'+_vpEsc(e.summary)+'"></div>';
+  h+='<div class="fl"><label>Date</label><input class="fi" type="date" id="ce-date" value="'+e.start.slice(0,10)+'"></div>';
+  h+='<div style="display:flex;gap:10px;"><div class="fl" style="flex:1;"><label>Time</label><input class="fi" type="time" step="900" id="ce-time" value="'+e.start.slice(11,16)+'"></div>';
+  h+='<div class="fl" style="flex:1;"><label>Length</label><select class="fi" id="ce-dur">'+opts.map(function(d){return '<option value="'+d+'"'+(d===dur?' selected':'')+'>'+_vpDurLabel(d)+'</option>';}).join('')+'</select></div></div>';
+  h+='<div class="fl"><label>Address</label><input class="fi" id="ce-loc" value="'+_vpEsc(e.location||'')+'"></div>';
+  h+='<div class="fl"><label>Notes</label><textarea class="ta" id="ce-desc" style="min-height:90px;">'+_vpEsc(e.description||'')+'</textarea></div>';
+  if(q)h+='<div style="font-size:12px;color:#276749;background:#f0faf4;border:1px solid #a7f3d0;border-radius:6px;padding:8px 10px;margin-bottom:10px;">This visit is linked to quote '+_vpEsc(q.ref)+'. A new address or date here updates the quote too.</div>';
+  h+='<button class="bg" id="ce-save" style="width:100%;padding:12px;" onclick="calSaveEdit(\''+k+'\')">Save changes</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;document.body.appendChild(ov);
+}
+async function calSaveEdit(k){
+  var e=_calKeys[k];if(!e)return;
+  var g=function(i){var x=document.getElementById(i);return x?x.value:'';};
+  var title=g('ce-title').trim()||e.summary,date=g('ce-date'),time=g('ce-time'),dur=parseInt(g('ce-dur'),10)||60,loc=g('ce-loc').trim(),desc=g('ce-desc');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)){alert('Please give a date and a time.');return;}
+  var body={summary:title,location:loc,description:desc};
+  var start=date+'T'+time,moved=(start!==e.start.slice(0,16))||dur!==_calMins(e);
+  if(moved){body.start=start;body.durationMin=dur;}
+  var b=document.getElementById('ce-save');if(b){b.disabled=true;b.textContent='Saving...';}
+  var r;try{r=await apiFetch(SUPA_URL+'/cal/events/'+encodeURIComponent(e.id)+'?cal='+(e.cal||0),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(x){r=null;}
+  if(!r||!r.ok){var msg='Could not save the change - check your connection and try again.';try{var d=await r.json();if(d&&d.message)msg=d.message;}catch(x){}alert(msg);if(b){b.disabled=false;b.textContent='Save changes';}return;}
+  var q=_calQuoteOf(e);
+  if(q){
+    if(loc!==(e.location||'')){var oldSa=q.serviceAddress;q.serviceAddress=loc;if(!q.address||q.address===oldSa)q.address=loc;}
+    if(moved){q.visitAt=start;q.visitDur=dur;if(q.status==='PENDING'&&!q.emailed){q.date=date;q.dateInput=date;q.expiryDate=_addDays(date,90);}}
+    q.calEventId=e.id;q.calSynced={summary:title,location:q.serviceAddress||'',start:q.visitAt||start};
+    saveData();
+  }
+  var o=document.getElementById('cal-evd');if(o)o.remove();
+  toast(q?'Visit and quote updated':'Visit updated');
+  if(typeof calRefresh==='function')calRefresh();
+  if(q&&!S.modal)render();
+}
+async function calDelete(k){
+  var e=_calKeys[k];if(!e)return;
+  if(!confirm('Delete "'+e.summary+'" from your Google Calendar?\n\nThis cannot be undone.'))return;
+  var r;try{r=await apiFetch(SUPA_URL+'/cal/events/'+encodeURIComponent(e.id)+'?cal='+(e.cal||0),{method:'DELETE'});}catch(x){r=null;}
+  if(!r||!r.ok){alert('Could not delete it - check your connection and try again.');return;}
+  var q=_calQuoteOf(e);
+  if(q&&q.calEventId===e.id){delete q.calEventId;delete q.calSynced;delete q.visitAt;delete q.visitDur;saveData();}
+  var o=document.getElementById('cal-evd');if(o)o.remove();
+  toast(q?'Visit deleted (the quote is kept)':'Visit deleted');
+  if(typeof calRefresh==='function')calRefresh();
+  if(q&&!S.modal)render();
+}
+async function _calSyncQuote(q){
+  if(!q||!q.calEventId||!q.visitAt)return;
+  var sy=q.calSynced||null;
+  if(q.status==='PENDING'&&!q.emailed){var dd=String(q.dateInput||q.date||'').slice(0,10);if(dd&&dd!==q.visitAt.slice(0,10))q.visitAt=dd+'T'+q.visitAt.slice(11,16);}
+  var want={summary:'Site visit - '+q.clientName,location:q.serviceAddress||q.address||'',start:q.visitAt};
+  var body={};
+  if(!sy){body.summary=want.summary;body.location=want.location;}
+  else{
+    if(sy.summary!==want.summary)body.summary=want.summary;
+    if((sy.location||'')!==want.location)body.location=want.location;
+    if(sy.start!==want.start){body.start=want.start;if(q.visitDur)body.durationMin=q.visitDur;}
+  }
+  if(!Object.keys(body).length)return;
+  var r;try{r=await apiFetch(SUPA_URL+'/cal/events/'+encodeURIComponent(q.calEventId),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(x){r=null;}
+  if(r&&r.ok){q.calSynced=want;toast('Quote saved and calendar visit updated');if(typeof _CAL!=='undefined'&&_CAL.open&&typeof calRefresh==='function')calRefresh();}
+  else if(r&&r.status===404){toast('Saved - but that visit is no longer in Google Calendar','#b45309');}
+  else toast('Saved - but the calendar could not be updated. Change it in Google Calendar, or save again.','#b45309');
 }
 function calOpenQuote(ref){closeCalendar();clearModals();S.previewRef=ref;S.view='estimates';render();}
 function _calRender(){
@@ -3191,6 +3267,7 @@ async function saveEst(){
   }
   S.neBase=_stable(ne);
   _syncClient(ne);
+  try{await _calSyncQuote(ne);}catch(e){}
   saveData();closeModal();return true;
 }
 function closeModal(){S.modal=null;S.picker=false;S.showCS=false;S.modalTab='details';clearModals();render();}
