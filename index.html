@@ -1623,7 +1623,7 @@ function rSplit(m,kind){
   S.previewRef=sel?sel.ref:null;
   const old=document.querySelector('.split-l');const top=old?old.scrollTop:0;
   const isInv=kind==='inv';
-  const tabs=isInv?['ACTIVE','PAID']:['PENDING','APPROVED'];
+  const tabs=isInv?['ACTIVE','PAID']:['PENDING','APPROVED','DECLINED'];
   const cur=isInv?(S.itab||'ACTIVE'):S.stab;
   const setTab=t=>isInv?`S.itab='${t}';S.previewRef=null;render()`:`S.stab='${t}';S.previewRef=null;render()`;
   m.innerHTML=`
@@ -1658,7 +1658,6 @@ function render(){
   _zoomFor(!!S.previewRef);
 }
 function _renderInner(){
-  if(S.stab==='DECLINED')S.stab='PENDING';
   const m=document.getElementById('main-area');if(!m)return;
   clearModals();
   if(_wide()&&(S.view==='estimates'||S.view==='invoices')){rSplit(m,S.view==='invoices'?'inv':'est');applyMobileLayout();return;}
@@ -1999,10 +1998,10 @@ function rEst(m){
   const g=grpByMonth(fl);
   m.innerHTML=`
   <div class="topbar dl-top"><h1>Estimates</h1><div style="display:flex;gap:8px;"><button class="bg nb" onclick="openNE()" aria-label="New Estimate"><span class="nb-t">+ New Estimate</span><span class="nb-p">+</span></button></div></div>
-  <div class="tabs dl-tabs">${['PENDING','APPROVED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
+  <div class="tabs dl-tabs">${['PENDING','APPROVED','DECLINED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
   <div class="content">
     <div class="dl-tools"><input class="si" placeholder="${innerWidth<=560?'Search all estimates':'Search by name, address or estimate #'}" value="${_esc(S.sq||'')}" oninput="S.sq=this.value;render()"><button class="bs" onclick="exportToExcel()">Export</button></div>
-    ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.<br>Tap <strong>+ New Estimate</strong> to create one.</div>`:docListHtml(g,'est')}
+    ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.${S.stab==='DECLINED'?'':'<br>Tap <strong>+ New Estimate</strong> to create one.'}</div>`:docListHtml(g,'est')}
     ${trashLinkHtml()}
   </div>`;
   setTimeout(initSwipeDelete,100);
@@ -3679,7 +3678,7 @@ ${_canChase(doc,isI)?`<button onclick="openChase('${doc.ref}')" style="display:f
   </div>`:''}
 
   <!-- Email status -->
-  <div class="email-status-bar" style="font-size:11px;">${doc.emailed?(doc.emailOpened?`📬 Opened ${doc.openCount>1?doc.openCount+'x ':''} · 👁 Viewed ${doc.viewCount||1}x`:'📧 Sent — not yet opened'):'Not yet sent'}${doc.chase&&doc.chase.n?` · 🔔 Chased ${doc.chase.n}x, last ${_ago(doc.chase.last)}`:''}</div>
+  <div class="email-status-bar" style="font-size:11px;">${doc.status==='DECLINED'?('❌ Declined'+(doc.declineReason?' — '+_esc(doc.declineReason):'')+(doc.declineNote?' ('+_esc(doc.declineNote)+')':'')+' · the customer\'s link now shows the quote is closed'):doc.emailed?(doc.emailOpened?`📬 Opened ${doc.openCount>1?doc.openCount+'x ':''} · 👁 Viewed ${doc.viewCount||1}x`:'📧 Sent — not yet opened'):'Not yet sent'}${doc.chase&&doc.chase.n?` · 🔔 Chased ${doc.chase.n}x, last ${_ago(doc.chase.last)}`:''}</div>
 
   <!-- Document Preview -->
   <div class="content" style="padding:0;">
@@ -3980,7 +3979,7 @@ function cycleStatus(ref){
   const isI=ref.includes('invoice');
   const ov=document.createElement('div');ov.className='modal-overlay send-overlay';
   ov.onclick=e=>{if(e.target===ov)ov.remove();};
-  const statuses=isI?['ACTIVE','PAID']:['PENDING','APPROVED'];
+  const statuses=isI?['ACTIVE','PAID']:['PENDING','APPROVED','DECLINED'];
   ov.innerHTML=`<div class="send-box" style="width:100%;border-radius:16px 16px 0 0;padding:8px 0 20px;">
     <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:8px auto 16px;"></div>
     <div style="font-size:13px;font-weight:600;color:#888;padding:0 20px 10px;">Change Status</div>
@@ -3992,12 +3991,45 @@ function cycleStatus(ref){
   </div>`;
   // Attach setter dynamically
   window[`doc_${ref.replace(/\W/g,'')}_setStatus`]=function(status){
+    if(status==='DECLINED'&&!isI){openDeclineSheet(ref);return;}
+    var wasD=doc.status==='DECLINED';
     doc.status=status;saveData();
-    _pvRender();
+    if(wasD)render();else _pvRender();
   };
   document.body.appendChild(ov);
 }
 
+var _dclReason='';
+function dclPick(b,r){
+  _dclReason=(_dclReason===r)?'':r;
+  var all=document.querySelectorAll('#dcl-ov .dcl-r');
+  for(var i=0;i<all.length;i++){var on=all[i].getAttribute('data-r')===_dclReason;all[i].style.background=on?'#276749':'#fff';all[i].style.color=on?'#fff':'#276749';}
+}
+function openDeclineSheet(ref){
+  var doc=S.estimates.find(function(e){return e.ref===ref;});if(!doc)return;
+  _dclReason='';
+  var old=document.getElementById('dcl-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.className='modal-overlay send-overlay';ov.id='dcl-ov';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var rs=['Too expensive','Chose someone else','No reply','Changed their mind','Other'];
+  ov.innerHTML='<div class="send-box" style="width:100%;border-radius:16px 16px 0 0;padding:8px 0 20px;">'
+   +'<div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:8px auto 12px;"></div>'
+   +'<div style="padding:0 20px 8px;"><div style="font-size:15px;font-weight:700;">Mark as declined</div><div style="font-size:12px;color:#888;margin-top:2px;">'+_esc(doc.clientName)+' · '+fmt(calcGrandTotal(doc))+'. The customer’s link will show that the quote is closed.</div></div>'
+   +'<div style="padding:4px 20px 0;font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.5px;">Reason (optional)</div>'
+   +'<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 20px;">'+rs.map(function(r){return '<button type="button" class="dcl-r" data-r="'+r+'" onclick="dclPick(this,\''+r+'\')" style="padding:9px 14px;border:1px solid #276749;border-radius:20px;background:#fff;color:#276749;font-size:13px;font-weight:600;cursor:pointer;">'+r+'</button>';}).join('')+'</div>'
+   +'<div style="padding:0 20px;"><textarea id="dcl-note" class="ta" placeholder="Note (optional) - e.g. went with another firm, said we were dearer" style="min-height:70px;font-size:13px;"></textarea></div>'
+   +'<div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:8px;"><button class="bg" style="width:100%;padding:12px;background:#c62828;border-color:#c62828;" onclick="dclSave(\''+ref+'\')">Mark as declined</button><button class="bs" style="width:100%;padding:12px;" onclick="document.getElementById(\'dcl-ov\').remove()">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+}
+function dclSave(ref){
+  var doc=S.estimates.find(function(e){return e.ref===ref;});if(!doc)return;
+  var n=document.getElementById('dcl-note');
+  doc.status='DECLINED';doc.declinedAt=new Date().toISOString();doc.declineReason=_dclReason||'';doc.declineNote=n?n.value.trim().slice(0,300):'';
+  saveData();
+  var o=document.getElementById('dcl-ov');if(o)o.remove();
+  toast('Quote marked as declined');
+  render();
+}
 function duplicateDoc(ref){
   const orig=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!orig)return;
   const isI=ref.includes('invoice');
@@ -5588,6 +5620,7 @@ applyMobileLayout();
       .then(function(res){
         if(!res||!res.doc){custBody.innerHTML=notFound;return;}
         S.co={...DEF_CO,...(res.co||{})};
+        if(res.doc.status==='DECLINED'&&!String(res.doc.ref||quoteRef).includes('invoice')){custBody.innerHTML='<div style="text-align:center;padding:60px 24px;max-width:460px;margin:0 auto;"><div style="font-size:34px;margin-bottom:14px;">🚫</div><div style="font-size:18px;font-weight:700;color:#222;margin-bottom:10px;">This quote is no longer available</div><div style="font-size:15px;color:#555;line-height:1.7;">Alexander Pointing Ltd has closed this quote, so it can no longer be viewed or accepted.<br><br>If you would like it looked at again, please get in touch.</div><a href="tel:01613272843" style="display:inline-block;margin-top:22px;padding:12px 24px;background:#276749;color:#fff;border-radius:8px;font-size:15px;text-decoration:none;">📞 0161 327 2843</a><div style="margin-top:14px;font-size:14px;"><a href="mailto:mail@ukpointing.com" style="color:#276749;">mail@ukpointing.com</a></div></div>';return;}
         let remoteDoc=prep(res.doc);
         // Record the view on the server and wait for it, so it can never land after (and overwrite) a signature.
         return fetch(SUPA_URL+'/public/view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:quoteRef,k:linkKey})})
