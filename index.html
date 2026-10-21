@@ -3626,7 +3626,7 @@ function rPreview(m){
   const grand=isI?sub+(doc.vat?sub*0.2:0):calcGrandTotal(doc);
   const viewMode=S.previewMode||'desktop';
   const showQty=S.displayOpts?.qty!==false;
-  const showRate=S.displayOpts?.rate!==false;
+  const showRate=doc.showRate===true;
   const showTotal=S.displayOpts?.total!==false;
   const statusColor={PENDING:'#6b7280',APPROVED:'#276749',DECLINED:'#c62828',ACTIVE:'#92400e',PAID:'#276749'}[doc.status]||'#6b7280';
 
@@ -3936,6 +3936,13 @@ function openMoreSheet(ref){
   document.body.appendChild(ov);
 }
 
+function _dispDoc(){return (S.invoices||[]).find(function(i){return i.ref===S.previewRef;})||(S.estimates||[]).find(function(e){return e.ref===S.previewRef;})||null;}
+function _dispOn(k){if(k==='rate'){var d=_dispDoc();return !!(d&&d.showRate===true);}return !!(S.displayOpts&&S.displayOpts[k]);}
+function dispToggle(k,el){
+  if(k==='rate'){var d=_dispDoc();if(d){d.showRate=!(d.showRate===true);saveData();}}
+  else{S.displayOpts[k]=!S.displayOpts[k];}
+  var sv=el.querySelector('svg');if(sv)sv.style.display=_dispOn(k)?'block':'none';
+}
 function openDisplayOptions(){
   if(!S.displayOpts)S.displayOpts={qty:true,rate:true,total:true};
   const ov=document.createElement('div');ov.className='modal-overlay send-overlay';
@@ -3945,11 +3952,11 @@ function openDisplayOptions(){
       <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto;"></div>
       <button onclick="saveData();this.closest('.send-overlay').remove();_pvRender()" style="background:#276749;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Save</button>
     </div>
-    <div style="font-size:14px;color:#888;text-align:center;margin-bottom:14px;">What columns to show on documents?</div>
+    <div style="font-size:14px;color:#888;text-align:center;margin-bottom:14px;">Columns to show on this document. Rate is off unless you turn it on.</div>
     ${[['qty','Quantity'],['rate','Rate'],['total','Total']].map(([k,label])=>`
-    <div onclick="S.displayOpts.${k}=!S.displayOpts.${k};this.querySelector('svg').style.display=S.displayOpts.${k}?'block':'none'" style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #f0f0ed;cursor:pointer;">
+    <div onclick="dispToggle('${k}',this)" style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #f0f0ed;cursor:pointer;">
       <span style="font-size:16px;font-weight:500;">${label}</span>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#276749" stroke-width="3" style="display:${S.displayOpts[k]?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#276749" stroke-width="3" style="display:${_dispOn(k)?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
     </div>`).join('')}
   </div>`;
   document.body.appendChild(ov);
@@ -3961,7 +3968,7 @@ function printDoc(){
   var isI=doc.ref.includes('invoice'),sub=tot(doc.lineItems);
   var grand=isI?sub+(doc.vat?sub*0.2:0):calcGrandTotal(doc);
   var o=S.displayOpts||{};
-  var body=renderDesktopPreview(doc,S.co,grand,isI,o.qty!==false,o.rate!==false,o.total!==false);
+  var body=renderDesktopPreview(doc,S.co,grand,isI,o.qty!==false,doc.showRate===true,o.total!==false);
   var old=document.getElementById('print-frame');if(old)old.remove();
   var f=document.createElement('iframe');f.id='print-frame';
   f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
@@ -4936,6 +4943,7 @@ function saveSettings(){
 // --- Customer Quote View -----------------------------------------------------
 let custSigCtx=null,custSigDrawing=false,custSigLast={x:0,y:0},custSigHasMark=false;
 
+function _declinedHtml(){return '<div style="text-align:center;padding:60px 24px;max-width:460px;margin:0 auto;"><div style="font-size:34px;margin-bottom:14px;">🚫</div><div style="font-size:18px;font-weight:700;color:#222;margin-bottom:10px;">This quote is no longer available</div><div style="font-size:15px;color:#555;line-height:1.7;">Alexander Pointing Ltd has closed this quote, so it can no longer be viewed or accepted.<br><br>If you would like it looked at again, please get in touch.</div><a href="tel:01613272843" style="display:inline-block;margin-top:22px;padding:12px 24px;background:#276749;color:#fff;border-radius:8px;font-size:15px;text-decoration:none;">📞 0161 327 2843</a><div style="margin-top:14px;font-size:14px;"><a href="mailto:mail@ukpointing.com" style="color:#276749;">mail@ukpointing.com</a></div></div>';}
 function viewAsCustomer(ref){
   window._custPreview=true;
   showCustomerView(ref);
@@ -4946,6 +4954,7 @@ function showCustomerView(ref){
   if(!doc){return;}
   const page=document.getElementById('cust-page');
   page.style.display='block';
+  if(doc.status==='DECLINED'&&!String(doc.ref||'').includes('invoice')){var cb=document.getElementById('cust-body');if(cb)cb.innerHTML=_declinedHtml();return;}
   renderCustomerView(doc);
 }
 
@@ -5048,7 +5057,7 @@ function buildDesktopHtml(doc){
   var deposit=calcDeposit(doc);
   var bankItem=(doc.lineItems||[]).find(function(li){return(li.name||'').toLowerCase().includes('bank detail');});
   var lineItems=(doc.lineItems||[]).filter(function(li){return!(li.name||'').toLowerCase().includes('bank detail');});
-  var showRate=lineItems.some(function(li){return li.rate>0;});
+  var showRate=doc.showRate===true&&lineItems.some(function(li){return li.rate>0;});
   var addrParts=(doc.serviceAddress||doc.address||'').split(',').map(function(x){return x.trim();}).filter(Boolean);
 
   var rows=lineItems.map(function(li){
@@ -5620,7 +5629,7 @@ applyMobileLayout();
       .then(function(res){
         if(!res||!res.doc){custBody.innerHTML=notFound;return;}
         S.co={...DEF_CO,...(res.co||{})};
-        if(res.doc.status==='DECLINED'&&!String(res.doc.ref||quoteRef).includes('invoice')){custBody.innerHTML='<div style="text-align:center;padding:60px 24px;max-width:460px;margin:0 auto;"><div style="font-size:34px;margin-bottom:14px;">🚫</div><div style="font-size:18px;font-weight:700;color:#222;margin-bottom:10px;">This quote is no longer available</div><div style="font-size:15px;color:#555;line-height:1.7;">Alexander Pointing Ltd has closed this quote, so it can no longer be viewed or accepted.<br><br>If you would like it looked at again, please get in touch.</div><a href="tel:01613272843" style="display:inline-block;margin-top:22px;padding:12px 24px;background:#276749;color:#fff;border-radius:8px;font-size:15px;text-decoration:none;">📞 0161 327 2843</a><div style="margin-top:14px;font-size:14px;"><a href="mailto:mail@ukpointing.com" style="color:#276749;">mail@ukpointing.com</a></div></div>';return;}
+        if(res.doc.status==='DECLINED'&&!String(res.doc.ref||quoteRef).includes('invoice')){custBody.innerHTML=_declinedHtml();return;}
         let remoteDoc=prep(res.doc);
         // Record the view on the server and wait for it, so it can never land after (and overwrite) a signature.
         return fetch(SUPA_URL+'/public/view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:quoteRef,k:linkKey})})
