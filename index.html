@@ -1378,7 +1378,7 @@ async function syncToSupabase(){
 function loadData(){
   try{
     const d=localStorage.getItem(SKEY);
-    if(d){const p=JSON.parse(d);Object.assign(S,p);if(!S.co)S.co={...DEF_CO};else S.co={...DEF_CO,...S.co};if(!S.activity)S.activity=[];
+    if(d){const p=JSON.parse(d);Object.assign(S,p);S.view='dashboard';S.previewRef=null;if(!S.co)S.co={...DEF_CO};else S.co={...DEF_CO,...S.co};if(!S.activity)S.activity=[];
   if(!S.customItems||S.customItems.length===0){
     // Seed all standard items into customItems on first load
     S.customItems=ITEMS.map(function(it,i){return{id:'std_'+i,name:it.name,desc:it.desc||'',rate:it.rate||0};});
