@@ -3329,6 +3329,7 @@ async function doSendEmail(ref,link,btn){
   </div>`;
   const ok=await sendEmail(to,subj,html);
   if(ok){
+    doc.sentByEmail=true;
     markShared(ref,doc);
     toast('✅ Email sent to '+to);
     document.querySelector('.send-overlay')?.remove();
@@ -3979,7 +3980,43 @@ function printDoc(){
   setTimeout(function(){try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.print();}setTimeout(function(){var x=document.getElementById('print-frame');if(x)x.remove();},60000);},600);
 }
 
-function shareBySMS(ref){openShareModal(ref);}
+function _smsNumber(v){
+  var n=String(v||'').replace(/[\s\-().]/g,'');
+  if(!n)return '';
+  if(/^0044/.test(n))n='+44'+n.slice(4);
+  if(/^07\d{9}$/.test(n))return '+44'+n.slice(1);
+  if(/^447\d{9}$/.test(n))return '+'+n;
+  if(/^\+447\d{9}$/.test(n))return n;
+  if(/^\+(?!44)\d{8,15}$/.test(n))return n;
+  return '';
+}
+function _smsText(doc,ref){
+  var isI=ref.indexOf('invoice')>=0,c=S.co||{};
+  if(!doc.shareKey){doc.shareKey=newShareKey();}
+  var link='https://updates.ukpointing.com/?quote='+ref+'&k='+doc.shareKey;
+  var co=c.companyName||'Alexander Pointing Ltd',me=c.firstName||'Iain',ph=c.phone||'0161 327 2843';
+  return 'Hi '+(doc.clientName||'')+', here is your '+(isI?'invoice':'quote')+' from '+co+':\n'+link+'\n\n'
+    +(doc.sentByEmail&&doc.email?'I\'ve also emailed it to you. If you can\'t see it, please check your junk or spam folder.\n\n':'')
+    +(isI?'Payment is due within 5 days. ':'')+'Any questions, call '+ph+'.\n\nKind regards,\n'+me;
+}
+function _smsUrl(num,body){
+  var android=/Android/i.test(navigator.userAgent||'');
+  return 'sms:'+num+(android?'?':'&')+'body='+encodeURIComponent(body);
+}
+function _openSms(url){window.location.href=url;}
+async function shareBySMS(ref){
+  var doc=S.estimates.find(function(e){return e.ref===ref;})||S.invoices.find(function(i){return i.ref===ref;});if(!doc)return;
+  var num=_smsNumber(doc.mobile)||_smsNumber(doc.phone);
+  var phoneOS=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||_isPad();
+  if(!num||!phoneOS){
+    toast(!num?'No mobile number on this quote — choose how to send':'Texting needs a phone or iPad — choose how to send','#e65100');
+    openShareModal(ref);return;
+  }
+  try{await ensureShareKey(doc);}catch(e){toast('❌ Could not prepare the link — try again','#c62828');return;}
+  var url=_smsUrl(num,_smsText(doc,ref));
+  markShared(ref,doc);
+  _openSms(url);
+}
 
 function cycleStatus(ref){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
