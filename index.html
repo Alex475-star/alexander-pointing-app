@@ -830,6 +830,7 @@ async function ensureShareKey(doc){
   if(!doc.shareKey){doc.shareKey=newShareKey();}
   saveLocal();
   const table=doc.ref.includes('invoice')?'invoices':'estimates';
+  try{await _mergeTracking(table,doc);}catch(e){}
   const r=await apiFetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:doc.ref,data:doc})});
   if(!r.ok)throw new Error('could not save link key ('+r.status+')');
   try{_register(table,doc);}catch(e){}
@@ -1327,6 +1328,25 @@ async function _reserveRef(kind,ne){
   if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n2+1);else S.nextI=Math.max(S.nextI||0,n2+1);
 }
 function _metaObj(){return {clients:S.clients||[],activity:S.activity||[],actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};}
+// Fields the server owns: the customer's opens, views, signature and chasers. A device that is behind must not wipe them.
+async function _mergeTracking(kind,d){
+  var srv=await _fetchDoc(kind,d.ref);
+  if(!srv||typeof srv!=='object')return;
+  d.viewCount=Math.max(d.viewCount||0,srv.viewCount||0);
+  d.openCount=Math.max(d.openCount||0,srv.openCount||0);
+  if(srv.openedAt&&(!d.openedAt||srv.openedAt>d.openedAt))d.openedAt=srv.openedAt;
+  // opened after the last time it was sent -> still counts as opened (a deliberate re-send resets this)
+  if(srv.emailOpened&&srv.openedAt&&srv.openedAt>=(d.emailedAt||''))d.emailOpened=true;
+  if(srv.emailedAt&&(!d.emailedAt||srv.emailedAt>d.emailedAt))d.emailedAt=srv.emailedAt;
+  if(srv.chase!==undefined)d.chase=srv.chase;
+  if(srv.signature&&!d.signature){d.signature=srv.signature;d.signedAt=srv.signedAt;d.status=srv.status||d.status;}
+  if(srv.sentByEmail&&!d.sentByEmail)d.sentByEmail=true;
+  if(srv.shareKey&&!d.shareKey)d.shareKey=srv.shareKey;
+  // the customer did open it: make sure the activity list says so, even if this device never saw it
+  if(srv.emailOpened&&!_actSkip('opened',d.ref)){
+    try{S.activity.unshift({type:'opened',ref:d.ref,name:d.clientName,val:fmt(tot(d.lineItems)),time:srv.openedAt||new Date().toISOString(),read:false});updateBadge();saveLocal();}catch(e){}
+  }
+}
 async function _doPush(){
   if(!_synced)return;
   var headers={'Content-Type':'application/json',...authHdr(),'Prefer':'resolution=merge-duplicates,return=minimal'};
@@ -1335,6 +1355,7 @@ async function _doPush(){
     var kind=lists[li][0],ch=(lists[li][1]||[]).filter(function(d){return d&&d.ref&&d.ref!=='_META_'&&_srv[kind+':'+d.ref]!==JSON.stringify(d);});
     if(!ch.length)continue;
     try{
+      for(var ci=0;ci<ch.length;ci++){try{await _mergeTracking(kind,ch[ci]);}catch(e){}}
       var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:headers,body:JSON.stringify(ch.map(function(d){return {ref:d.ref,data:d};}))});
       if(!r.ok)throw new Error('HTTP '+r.status);
       ch.forEach(function(d){_register(kind,d);});
