@@ -4012,7 +4012,7 @@ function _smsText(doc,ref){
   var link='https://updates.ukpointing.com/?quote='+ref+'&k='+doc.shareKey;
   var co=c.companyName||'Alexander Pointing Ltd',me=c.firstName||'Iain',ph=c.phone||'0161 327 2843';
   return 'Hi '+_firstName(doc.clientName)+', here is your '+(isI?'invoice':'quote')+' from '+co+'.\n\n'
-    +(doc.sentByEmail&&doc.email?'I\'ve also emailed it to you. If you can\'t see it, please check your junk or spam folder.\n\n':'')
+    +(doc.email?'I\'ve also emailed it to you. If you can\'t see it, please check your junk or spam folder.\n\n':'')
     +(isI?'Payment is due within 5 days.\n\n':'')
     +'Any questions, call '+ph+'.\n\nKind regards,\n'+me+'\n\n'
     +'View your '+(isI?'invoice':'quote')+':\n'+link;
