@@ -6,6 +6,15 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Alexander Pointing Ltd</title>
+<meta name="description" content="View your quote or invoice online">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Alexander Pointing Ltd">
+<meta property="og:title" content="Alexander Pointing Ltd">
+<meta property="og:description" content="View your quote or invoice online">
+<meta property="og:image" content="https://updates.ukpointing.com/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 
 <!-- PWA / Home Screen -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3990,14 +3999,23 @@ function _smsNumber(v){
   if(/^\+(?!44)\d{8,15}$/.test(n))return n;
   return '';
 }
+function _firstName(n){
+  n=String(n||'').trim().replace(/\s+/g,' ');
+  if(!n)return '';
+  if(/^(mr|mrs|ms|miss|mx|dr|prof|sir|lady)\b\.?/i.test(n))return n;
+  if(/\b(ltd|limited|&|and|plc|llp)\b|&/i.test(n))return n;
+  return n.split(' ')[0];
+}
 function _smsText(doc,ref){
   var isI=ref.indexOf('invoice')>=0,c=S.co||{};
   if(!doc.shareKey){doc.shareKey=newShareKey();}
   var link='https://updates.ukpointing.com/?quote='+ref+'&k='+doc.shareKey;
   var co=c.companyName||'Alexander Pointing Ltd',me=c.firstName||'Iain',ph=c.phone||'0161 327 2843';
-  return 'Hi '+(doc.clientName||'')+', here is your '+(isI?'invoice':'quote')+' from '+co+':\n'+link+'\n\n'
+  return 'Hi '+_firstName(doc.clientName)+', here is your '+(isI?'invoice':'quote')+' from '+co+'.\n\n'
     +(doc.sentByEmail&&doc.email?'I\'ve also emailed it to you. If you can\'t see it, please check your junk or spam folder.\n\n':'')
-    +(isI?'Payment is due within 5 days. ':'')+'Any questions, call '+ph+'.\n\nKind regards,\n'+me;
+    +(isI?'Payment is due within 5 days.\n\n':'')
+    +'Any questions, call '+ph+'.\n\nKind regards,\n'+me+'\n\n'
+    +'View your '+(isI?'invoice':'quote')+':\n'+link;
 }
 function _smsUrl(num,body){
   var android=/Android/i.test(navigator.userAgent||'');
