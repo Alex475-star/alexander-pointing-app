@@ -1502,7 +1502,7 @@ function _fixActTimes(){
     });
   }catch(e){}
 }
-function safeRender(){if(document.querySelector('.modal-overlay,.send-overlay')||S.modal||S.previewRef)return;render();}
+function safeRender(){if(document.querySelector('.modal-overlay,.send-overlay')||S.modal)return;if(S.previewRef){if(_wide()&&(S.view==='estimates'||S.view==='invoices')){const el=document.getElementById('sp-body');if(el){const kind=S.view==='invoices'?'inv':'est';el.innerHTML=_spListHtml(_spFilter(kind),kind,S.previewRef);setTimeout(initSwipeDelete,50);}}return;}render();}
 function fmt(n){return'£'+parseFloat(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function tot(li){return(li||[]).reduce((s,i)=>s+(parseFloat(i.rate||0)*parseFloat(i.qty||1)),0);}
 function grpByMonth(arr){const g={};(arr||[]).forEach(i=>{const k=new Date(i.date).toLocaleDateString('en-GB',{month:'long',year:'numeric'});if(!g[k])g[k]=[];g[k].push(i);});return g;}
