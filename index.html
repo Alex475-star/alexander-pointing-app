@@ -1247,6 +1247,7 @@ async function loadFromSupabase(){
         actRefs.add('paid_'+i.ref);
       }
     });
+    (S.estimates||[]).concat(S.invoices||[]).forEach(function(d){_bounceAct(d,true);});
     _fixActTimes();
     S.activity=S.activity.slice(0,200);
     if(estRows!==null&&invRows!==null){_synced=true;purgeTrash();}
@@ -1330,6 +1331,15 @@ async function _reserveRef(kind,ne){
   if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n2+1);else S.nextI=Math.max(S.nextI||0,n2+1);
 }
 function _metaObj(){return {clients:S.clients||[],activity:S.activity||[],actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[]};}
+function _isBounced(d){return !!(d&&d.bounced&&d.bounced.at&&d.bounced.at>(d.emailedAt||''));}
+function _bounceAct(d,read){
+  if(!_isBounced(d))return false;
+  var key='bounce_'+d.ref+'_'+d.bounced.at;
+  if((S.actGone||[]).indexOf(key)>=0)return false;
+  if((S.activity||[]).some(function(a){return a.type==='bounce'&&a.ref===d.ref&&a.time===d.bounced.at;}))return false;
+  S.activity.unshift({type:'bounce',ref:d.ref,name:d.clientName,val:fmt(calcGrandTotal(d)),time:d.bounced.at,read:!!read});
+  return true;
+}
 // Fields the server owns: the customer's opens, views, signature and chasers. A device that is behind must not wipe them.
 async function _mergeTracking(kind,d){
   var srv=await _fetchDoc(kind,d.ref);
@@ -1342,6 +1352,9 @@ async function _mergeTracking(kind,d){
   // opened after the last time it was sent -> still counts as opened (a deliberate re-send resets this)
   if(srv.emailOpened&&srv.openedAt&&srv.openedAt>=(d.emailedAt||''))d.emailOpened=true;
   if(srv.emailedAt&&(!d.emailedAt||srv.emailedAt>d.emailedAt))d.emailedAt=srv.emailedAt;
+  /* bounced email: the server marks it; it clears itself once the quote/invoice is emailed again */
+  if(srv.bounced&&srv.bounced.at&&srv.bounced.at>(d.emailedAt||'')){d.bounced=srv.bounced;try{if(_bounceAct(d,false)){updateBadge();saveLocal();}}catch(e){}}
+  else if(d.bounced&&!_isBounced(d)){delete d.bounced;}
   if(srv.chase!==undefined)d.chase=srv.chase;
   if(srv.signature&&!d.signature){d.signature=srv.signature;d.signedAt=srv.signedAt;d.status=srv.status||d.status;}
   if(srv.sentByEmail&&!d.sentByEmail)d.sentByEmail=true;
@@ -1422,6 +1435,7 @@ function loadData(){
         const prevApproved=new Set((S.estimates||[]).filter(e=>e.status==='APPROVED').map(e=>e.ref));
         const prevEstOpened=new Set((S.estimates||[]).filter(e=>e.emailOpened).map(e=>e.ref));
         const prevInvOpened=new Set((S.invoices||[]).filter(i=>i.emailOpened).map(i=>i.ref));
+        const prevBounce=new Set((S.estimates||[]).concat(S.invoices||[]).filter(_isBounced).map(d=>d.ref+d.bounced.at));
         if(_synced&&er.ok)S.estimates=mergeDocs('estimates',S.estimates,remEsts);
         if(_synced&&ir.ok)S.invoices=mergeDocs('invoices',S.invoices,remInvs);
         let changed=false;
@@ -1432,6 +1446,7 @@ function loadData(){
         (S.invoices||[]).forEach(function(i){
           if(i.emailOpened&&!prevInvOpened.has(i.ref)){addAct('opened',i.ref,i.clientName);richToast(i.clientName,fmt(calcGrandTotal(i)),'opened the invoice','#1565c0');updateBadge();changed=true;}
         });
+        (S.estimates||[]).concat(S.invoices||[]).forEach(function(d){if(_isBounced(d)&&!prevBounce.has(d.ref+d.bounced.at)&&_bounceAct(d,false)){richToast(d.clientName,fmt(calcGrandTotal(d)),'email BOUNCED — check the address','#c62828');updateBadge();changed=true;}});
         // Rebuild invoice activity (same as loadFromSupabase)
         const pollActRefs=new Set((S.activity||[]).map(a=>a.type+'_'+a.ref));
         (S.invoices||[]).forEach(function(i){
@@ -1865,12 +1880,13 @@ function rDash(m){
 }
 
 
-function actEmoji(t){return{emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️',chase:'🔔',sms:'💬',smsfail:'⚠️'}[t]||'📋';}
-function actBg(t){return{emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed',sms:'#f0f9ff',smsfail:'#fef2f2'}[t]||'#f3f4f6';}
+function actEmoji(t){return{bounce:'⚠️',emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️',chase:'🔔',sms:'💬',smsfail:'⚠️'}[t]||'📋';}
+function actBg(t){return{bounce:'#fef2f2',emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed',sms:'#f0f9ff',smsfail:'#fef2f2'}[t]||'#f3f4f6';}
 function actText(a){
   const isI=a.ref&&a.ref.includes('invoice');const dt=isI?'Invoice':'Estimate';
   const val=a.val?` — ${a.val}`:'';
   return{
+    bounce:`⚠️ Email to ${a.name} bounced (${dt} #${a.ref}) — check the email address, then send it again`,
     emailed:`${dt} #${a.ref} emailed to ${a.name}${val}`,
     opened:`Email for ${dt} #${a.ref} was opened by ${a.name}${val}`,
     viewed:`${dt} #${a.ref} for ${a.name} was viewed${a.viewNum?' (view #'+a.viewNum+')':''}${val}`,
@@ -3433,7 +3449,7 @@ async function copyLink(link,ref){await copyShareBody(ref,link);}
 function markShared(ref, doc, viaEmail){
   /* Only a real email (or the first time anything is sent) restarts the sent/opened tracking.
      Sharing the same link again by text, WhatsApp or copy must not wipe an earlier open. */
-  if(viaEmail||!doc.emailed){doc.emailed=true;doc.emailOpened=false;doc.emailedAt=new Date().toISOString();}
+  if(viaEmail||!doc.emailed){delete doc.bounced;doc.emailed=true;doc.emailOpened=false;doc.emailedAt=new Date().toISOString();}
   doc.sharedAt=new Date().toISOString();
   if(!doc.viewCount)doc.viewCount=0;
   if(!doc.openCount)doc.openCount=0;
@@ -3733,7 +3749,7 @@ ${_canChase(doc,isI)?`<button onclick="openChase('${doc.ref}')" style="display:f
   </div>`:''}
 
   <!-- Email status -->
-  <div class="email-status-bar" style="font-size:11px;">${doc.status==='DECLINED'?('❌ Declined'+(doc.declineReason?' — '+_esc(doc.declineReason):'')+(doc.declineNote?' ('+_esc(doc.declineNote)+')':'')+' · the customer\'s link now shows the quote is closed'):doc.emailed?(doc.emailOpened?`📬 Opened ${doc.openCount>1?doc.openCount+'x ':''} · 👁 Viewed ${doc.viewCount||1}x`:'📧 Sent — not yet opened'):'Not yet sent'}${doc.chase&&doc.chase.n?` · 🔔 Chased ${doc.chase.n}x, last ${_ago(doc.chase.last)}`:''}</div>
+  <div class="email-status-bar" style="font-size:11px;">${doc.status==='DECLINED'?('❌ Declined'+(doc.declineReason?' — '+_esc(doc.declineReason):'')+(doc.declineNote?' ('+_esc(doc.declineNote)+')':'')+' · the customer\'s link now shows the quote is closed'):doc.emailed?(_isBounced(doc)?'<b style="color:#c62828;">⚠️ Email bounced — check the address, then send it again</b>':doc.emailOpened?`📬 Opened ${doc.openCount>1?doc.openCount+'x ':''} · 👁 Viewed ${doc.viewCount||1}x`:'📧 Sent — not yet opened'):'Not yet sent'}${doc.chase&&doc.chase.n?` · 🔔 Chased ${doc.chase.n}x, last ${_ago(doc.chase.last)}`:''}</div>
 
   <!-- Document Preview -->
   <div class="content" style="padding:0;">
@@ -4843,6 +4859,7 @@ function _ago(iso){var n=_days(iso);return n===0?'today':n===1?'yesterday':n+' d
 function _openDoc(d,isI){return isI?(d.status!=='PAID'):(d.status==='PENDING'||!d.status)&&!d.signature;}
 function _canChase(d,isI){return !!(d&&d.emailed&&d.shareKey&&_openDoc(d,isI)&&/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(d.email||''));}
 function _waitTag(e,kind){
+  if(_isBounced(e))return '<div class="dl-wait" style="color:#c62828;font-weight:700;">⚠️ Email bounced — check the address</div>';
   var isI=kind==='inv';if(!e.emailed||!_openDoc(e,isI))return '';
   var n=_days(e.emailedAt||e.date);
   var txt=(isI?'Invoice sent ':'Sent ')+(n===0?'today':n===1?'yesterday':n+' days ago')+(isI?'':' · not signed');
