@@ -554,6 +554,7 @@ body.pad .pv-doc{max-width:none !important;margin:0 auto;box-sizing:border-box;w
 .add-line-btn{border-style:solid !important;}
 .client-box{border-style:solid !important;}
 </style>
+<script>(function(){try{var m=/[?&]q=([A-Za-z0-9_-]{26})(?:&|$)/.exec(location.search);if(!m)return;var b=atob(m[1].replace(/-/g,'+').replace(/_/g,'/')+'==');var u=[];for(var i=0;i<b.length;i++)u.push(b.charCodeAt(i));if(u.length!==19)return;var n=((u[0]&127)<<16)|(u[1]<<8)|u[2];var k='';for(i=3;i<19;i++)k+=('0'+u[i].toString(16)).slice(-2);history.replaceState(null,'','/?quote=apl'+((u[0]&128)?'invoice':'quote')+n+'&k='+k);}catch(e){}})();</script>
 <script>if(window.location.search.indexOf('quote=')>-1||window.location.search.indexOf('invoice=')>-1){document.addEventListener('DOMContentLoaded',function(){var ls=document.getElementById('login-screen');if(ls){ls.style.display='none';ls.style.visibility='hidden';}});}</script>
 </head>
 <body>
@@ -4028,16 +4029,15 @@ function _firstName(n){
   if(/\b(ltd|limited|&|and|plc|llp)\b|&/i.test(n))return n;
   return n.split(' ')[0];
 }
+function _shortLink(ref,key){var m=/^apl(quote|invoice)(\d+)$/.exec(ref||'');if(!m||!/^[0-9a-f]{32}$/.test(key||''))return null;var n=parseInt(m[2],10);if(n>8388607)return null;var u=[((m[1]==='invoice'?128:0)|(n>>16))&255,(n>>8)&255,n&255];for(var i=0;i<32;i+=2)u.push(parseInt(key.substr(i,2),16));return 'https://updates.ukpointing.com/?q='+btoa(String.fromCharCode.apply(null,u)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function _smsText(doc,ref){
   var isI=ref.indexOf('invoice')>=0,c=S.co||{};
   if(!doc.shareKey){doc.shareKey=newShareKey();}
-  var link='https://updates.ukpointing.com/?quote='+ref+'&k='+doc.shareKey;
-  var co=c.companyName||'Alexander Pointing Ltd',me=c.firstName||'Iain',ph=c.phone||'0161 327 2843';
-  return 'Hi '+_firstName(doc.clientName)+', here is your '+(isI?'invoice':'quote')+' from '+co+'.\n\n'
-    +(doc.email?'I\'ve also emailed it to you. If you can\'t see it, please check your junk or spam folder.\n\n':'')
-    +(isI?'Payment is due within 5 days.\n\n':'')
-    +'Any questions, call '+ph+'.\n\nKind regards,\n'+me+'\n\n'
-    +'View your '+(isI?'invoice':'quote')+':\n'+link;
+  var link=_shortLink(ref,doc.shareKey)||('https://updates.ukpointing.com/?quote='+ref+'&k='+doc.shareKey);
+  var co=c.companyName||'Alexander Pointing Ltd';
+  return 'Hi '+_firstName(doc.clientName)+', your '+(isI?'invoice':'quote')+' from '+co+' is ready.'
+    +(doc.email?' Also emailed, so check junk.':'')
+    +'\n\n'+link;
 }
 function _smsUrl(num,body){
   var android=/Android/i.test(navigator.userAgent||'');
