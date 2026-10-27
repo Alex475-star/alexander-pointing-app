@@ -3442,7 +3442,7 @@ function convertToInv(ref){
   const inv=JSON.parse(JSON.stringify(e));
   inv.ref='aplinvoice'+S.nextI++;inv.status='ACTIVE';inv.date=new Date().toISOString().split('T')[0];
   delete inv.signature;delete inv.signedAt;delete inv.expiryDate;delete inv.shareKey;
-  delete inv.emailOpened;delete inv.viewCount;delete inv.openCount;delete inv.openedAt;
+  delete inv.emailOpened;delete inv.viewCount;delete inv.openCount;delete inv.openedAt;inv.emailed=false;delete inv.emailedAt;delete inv.sentByEmail;delete inv.chase;delete inv.chasedAt;delete inv.lastChase;
   if(!inv.lineItems.find(l=>l.name==='Bank Details')){
     const c=S.co;
     inv.lineItems.push({name:'Bank Details',desc:`${c.companyName}\n${c.bankName}\nAccount: ${c.bankAccount}\nSort Code: ${c.sortCode}`,rate:0,qty:1,tax:'none'});
