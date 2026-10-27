@@ -1639,8 +1639,9 @@ function _spFilter(kind){
     return (S.invoices||[]).filter(i=>(tab==='ACTIVE'?i.status!=='PAID':i.status==='PAID')&&(!q||(i.clientName||'').toLowerCase().includes(q)||(i.ref||'').toLowerCase().includes(q)||(i.serviceAddress||i.address||'').toLowerCase().includes(q)));
   }
   const q=(S.sq||'').toLowerCase();
-  return (S.estimates||[]).filter(e=>e.status===S.stab&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(e.serviceAddress||e.address||'').toLowerCase().includes(q)));
+  return (S.estimates||[]).filter(e=>e.status===S.stab&&!_invd(e)&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(e.serviceAddress||e.address||'').toLowerCase().includes(q)));
 }
+function _invd(e){return !!(e&&e.invoiced&&(S.invoices||[]).some(function(i){return i.ref===e.invoiced;}));}
 function selDoc(ref){S.previewRef=ref;render();}
 function spSearch(kind,v){
   if(kind==='inv')S.iq=v;else S.sq=v;
@@ -2022,7 +2023,7 @@ function docListHtml(g,kind){
 
 function rEst(m){
   const fl=(S.estimates||[]).filter(e=>{
-    const tm=e.status===S.stab;
+    const tm=e.status===S.stab&&!_invd(e);
     const q=(S.sq||'').toLowerCase();
     return tm&&(!q||(e.clientName||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(e.serviceAddress||e.address||'').toLowerCase().includes(q));
   });
@@ -3447,7 +3448,7 @@ function convertToInv(ref){
     inv.lineItems.push({name:'Bank Details',desc:`${c.companyName}\n${c.bankName}\nAccount: ${c.bankAccount}\nSort Code: ${c.sortCode}`,rate:0,qty:1,tax:'none'});
   }
   inv.invoiceFooter=S.co.invoiceFooter||'';
-  S.invoices.unshift(inv);e.status='APPROVED';
+  delete inv.invoiced;inv.fromQuote=e.ref;S.invoices.unshift(inv);e.status='APPROVED';e.invoiced=inv.ref;
   
   saveData();toast('Invoice #'+inv.ref+' created!');nav('invoices');
 }
