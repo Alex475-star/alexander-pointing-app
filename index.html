@@ -1336,6 +1336,8 @@ async function _mergeTracking(kind,d){
   if(!srv||typeof srv!=='object')return;
   d.viewCount=Math.max(d.viewCount||0,srv.viewCount||0);
   d.openCount=Math.max(d.openCount||0,srv.openCount||0);
+  /* one-off repair: when the server copy carries a newer trackFix marker, take its sent time and opened flag */
+  if(srv.trackFix&&srv.trackFix!==d.trackFix){d.emailedAt=srv.emailedAt;d.emailOpened=!!srv.emailOpened;d.trackFix=srv.trackFix;}
   if(srv.openedAt&&(!d.openedAt||srv.openedAt>d.openedAt))d.openedAt=srv.openedAt;
   // opened after the last time it was sent -> still counts as opened (a deliberate re-send resets this)
   if(srv.emailOpened&&srv.openedAt&&srv.openedAt>=(d.emailedAt||''))d.emailOpened=true;
@@ -3364,7 +3366,7 @@ async function doSendEmail(ref,link,btn){
   const ok=await sendEmail(to,subj,html);
   if(ok){
     doc.sentByEmail=true;
-    markShared(ref,doc);
+    markShared(ref,doc,true);
     toast('✅ Email sent to '+to);
     _autoSms(ref,doc);
     document.querySelector('.send-overlay')?.remove();
@@ -3428,8 +3430,11 @@ async function doShare(ref,msg,link){
 }
 async function copyLink(link,ref){await copyShareBody(ref,link);}
 
-function markShared(ref, doc){
-  doc.emailed=true;doc.emailOpened=false;doc.emailedAt=new Date().toISOString();
+function markShared(ref, doc, viaEmail){
+  /* Only a real email (or the first time anything is sent) restarts the sent/opened tracking.
+     Sharing the same link again by text, WhatsApp or copy must not wipe an earlier open. */
+  if(viaEmail||!doc.emailed){doc.emailed=true;doc.emailOpened=false;doc.emailedAt=new Date().toISOString();}
+  doc.sharedAt=new Date().toISOString();
   if(!doc.viewCount)doc.viewCount=0;
   if(!doc.openCount)doc.openCount=0;
   
