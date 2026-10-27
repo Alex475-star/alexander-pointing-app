@@ -1863,8 +1863,8 @@ function rDash(m){
 }
 
 
-function actEmoji(t){return{emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️',chase:'🔔'}[t]||'📋';}
-function actBg(t){return{emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed'}[t]||'#f3f4f6';}
+function actEmoji(t){return{emailed:'📧',opened:'📬',viewed:'👁',created:'📋',converted:'🔄',paid:'✅',signed:'✍️',chase:'🔔',sms:'💬',smsfail:'⚠️'}[t]||'📋';}
+function actBg(t){return{emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed',sms:'#f0f9ff',smsfail:'#fef2f2'}[t]||'#f3f4f6';}
 function actText(a){
   const isI=a.ref&&a.ref.includes('invoice');const dt=isI?'Invoice':'Estimate';
   const val=a.val?` — ${a.val}`:'';
@@ -1876,7 +1876,9 @@ function actText(a){
     converted:`Estimate #${a.ref} converted to Invoice for ${a.name}${val}`,
     paid:`Invoice #${a.ref} marked as paid — ${a.name}${val}`,
     signed:`✍️ ${a.name} signed and accepted Estimate #${a.ref}${val}`,
-    chase:`Chased ${a.name} — reminder emailed${a.chaseN?' ('+(a.chaseN===1?'chased once':'chased '+a.chaseN+' times')+')':''} for ${dt} #${a.ref}${val}`
+    chase:`Chased ${a.name} — reminder emailed${a.chaseN?' ('+(a.chaseN===1?'chased once':'chased '+a.chaseN+' times')+')':''} for ${dt} #${a.ref}${val}`,
+    sms:`Text sent to ${a.name} for ${dt} #${a.ref}${val}`,
+    smsfail:`Text to ${a.name} did not send (${dt} #${a.ref}). ${a.err||'Try again'}`
   }[a.type]||`${dt} #${a.ref} — ${a.name}`;
 }
 function actDayLabel(iso){
@@ -3364,12 +3366,27 @@ async function doSendEmail(ref,link,btn){
     doc.sentByEmail=true;
     markShared(ref,doc);
     toast('✅ Email sent to '+to);
+    _autoSms(ref,doc);
     document.querySelector('.send-overlay')?.remove();
   } else {
     btn.textContent='✉️ Send Email';btn.disabled=false;
     toast('❌ Email failed — check Worker is deployed','#c62828');
   }
 }
+async function _autoSms(ref,doc){
+  try{
+    if(!(S.co&&S.co.smsAuto))return;
+    var isI=ref.indexOf('invoice')>=0;
+    var num=_smsNumber(doc.mobile||doc.phone||'');
+    if(!/^\+447\d{9}$/.test(num)){toast('Text not sent: no UK mobile number on this '+(isI?'invoice':'quote'),'#e65100');return;}
+    if(doc.smsAt&&Date.now()-new Date(doc.smsAt).getTime()<120000)return;
+    var r=await apiFetch(SUPA_URL+'/sms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:num.slice(1),text:_smsText(doc,ref)})});
+    var j={};try{j=await r.json();}catch(e){}
+    if(r.ok&&j&&j.ok){doc.smsAt=new Date().toISOString();addAct('sms',ref,doc.clientName||'');toast('✅ Text sent to '+(doc.clientName||'customer'));}
+    else{var m=(j&&j.message)||'Try again.';addAct('smsfail',ref,doc.clientName||'');if(S.activity[0])S.activity[0].err=m;saveData();toast('⚠️ Text did not send: '+m,'#c62828');}
+  }catch(e){try{addAct('smsfail',ref,doc.clientName||'');if(S.activity[0])S.activity[0].err='No connection.';saveData();}catch(x){}toast('⚠️ Text did not send (no connection)','#c62828');}
+}
+function toggleAutoSms(){S.co=S.co||{};S.co.smsAuto=!S.co.smsAuto;saveData();rSettings(document.getElementById('main-area'));}
 async function doShareWithBody(ref,link){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
   try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');return;}
@@ -4913,6 +4930,8 @@ async function rAlertsTab(m,tabNav){
    +'<div style="font-size:13px;margin-bottom:12px;"><b>Status:</b> '+stTxt+'</div>'
    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+(st==='on'?'<button class="bs" onclick="disablePush()">Turn off</button>':'<button class="bg" onclick="enablePush()">Turn on alerts</button>')+'<button class="bs" onclick="testPush()">Send a test</button></div>'
    +'<div id="push-msg" style="font-size:12px;color:#276749;margin-top:10px;min-height:16px;"></div></div>'
+   +'<div style="font-size:14px;font-weight:600;margin:22px 0 10px;color:#111;">Text messages to customers</div>'
+   +'<div class="sc"><div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:12px;">When you email a quote or invoice from the app, also text the customer from UKPointing. It says it has been emailed and to check junk. One way only, they cannot reply.</div><div style="font-size:13px;margin-bottom:12px;"><b>Status:</b> '+((S.co&&S.co.smsAuto)?'On':'Off')+'</div><button class="'+((S.co&&S.co.smsAuto)?'bs':'bg')+'" onclick="toggleAutoSms()">'+((S.co&&S.co.smsAuto)?'Turn off':'Turn on')+'</button></div>'
    +'<div style="font-size:12px;color:#888;line-height:1.6;margin-top:14px;">To chase a customer, open the quote or invoice and press the Chase button. Nothing is ever sent to a customer without you pressing it.</div>'
    +'</div></div>';
 }
