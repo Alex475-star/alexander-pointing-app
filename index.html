@@ -1368,7 +1368,7 @@ async function _mergeTracking(kind,d){
   if(srv.shareKey&&!d.shareKey)d.shareKey=srv.shareKey;
   // the customer did open it: make sure the activity list says so, even if this device never saw it
   if(srv.emailOpened&&!_actSkip('opened',d.ref)){
-    try{S.activity.unshift({type:'opened',ref:d.ref,name:d.clientName,val:fmt(tot(d.lineItems)),time:srv.openedAt||new Date().toISOString(),read:false});updateBadge();saveLocal();}catch(e){}
+    try{S.activity.unshift({type:'opened',ref:d.ref,name:d.clientName,val:fmt(calcGrandTotal(d)),time:srv.openedAt||new Date().toISOString(),read:false});updateBadge();saveLocal();}catch(e){}
   }
 }
 async function _doPush(){
@@ -1540,7 +1540,7 @@ function unread(){return(S.activity||[]).filter(a=>!a.read).length;}
 
 function addAct(type,ref,name,extra){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);
-  const val=doc?fmt(tot(doc.lineItems)):null;
+  const val=doc?fmt(calcGrandTotal(doc)):null;
   const viewNum=(type==='viewed'&&doc)?doc.viewCount:null;
   const chaseN=(type==='chase'&&doc&&doc.chase)?doc.chase.n:null;
   S.activity.unshift({type,ref,name,val,viewNum,chaseN,time:new Date().toISOString(),read:false});
@@ -1891,7 +1891,9 @@ function actEmoji(t){return{bounce:'⚠️',emailed:'📧',opened:'📬',viewed:
 function actBg(t){return{bounce:'#fef2f2',emailed:'#e3f2fd',opened:'#dcfce7',viewed:'#dcfce7',created:'#f3f4f6',converted:'#f5f3ff',paid:'#dcfce7',signed:'#f0faf4',chase:'#fff7ed',sms:'#f0f9ff',smsfail:'#fef2f2'}[t]||'#f3f4f6';}
 function actText(a){
   const isI=a.ref&&a.ref.includes('invoice');const dt=isI?'Invoice':'Estimate';
-  const val=a.val?` — ${a.val}`:'';
+  const _ld=a.ref&&((S.estimates||[]).find(e=>e.ref===a.ref)||(S.invoices||[]).find(i=>i.ref===a.ref));
+  const _v=_ld?fmt(calcGrandTotal(_ld)):a.val;
+  const val=_v?` — ${_v}`:'';
   return{
     bounce:`⚠️ Email to ${a.name} bounced (${dt} #${a.ref}) — check the email address, then send it again`,
     emailed:`${dt} #${a.ref} emailed to ${a.name}${val}`,
