@@ -2053,8 +2053,8 @@ function rEst(m){
   <div class="topbar dl-top"><h1>Estimates</h1><div style="display:flex;gap:8px;"><button class="bg nb" onclick="openNE()" aria-label="New Estimate"><span class="nb-t">+ New Estimate</span><span class="nb-p">+</span></button></div></div>
   <div class="tabs dl-tabs">${['PENDING','APPROVED','DECLINED'].map(t=>`<div class="tab ${S.stab===t?'active':''}" onclick="S.stab='${t}';render()">${t}</div>`).join('')}</div>
   <div class="content">
-    <div class="dl-tools"><input class="si" placeholder="${innerWidth<=560?'Search all estimates':'Search by name, address or estimate #'}" value="${_esc(S.sq||'')}" oninput="S.sq=this.value;render()"><button class="bs" onclick="exportToExcel()">Export</button></div>
-    ${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.${S.stab==='DECLINED'?'':'<br>Tap <strong>+ New Estimate</strong> to create one.'}</div>`:docListHtml(g,'est')}
+    <div class="dl-tools"><input class="si" placeholder="${innerWidth<=560?'Search all estimates':'Search by name, address or estimate #'}" value="${_esc(S.sq||'')}" oninput="softSearch('est',this.value)"><button class="bs" onclick="exportToExcel()">Export</button></div>
+    <div id="dl-body">${Object.keys(g).length===0?`<div class="empty dl-empty">No ${S.stab.toLowerCase()} estimates.${S.stab==='DECLINED'?'':'<br>Tap <strong>+ New Estimate</strong> to create one.'}</div>`:docListHtml(g,'est')}</div>
     ${trashLinkHtml()}
   </div>`;
   setTimeout(initSwipeDelete,100);
@@ -3508,8 +3508,8 @@ function rInv(m){
   <div class="topbar dl-top"><h1>Invoices</h1><div style="display:flex;gap:8px;"><button class="bg nb" onclick="openNewInv()" aria-label="New Invoice"><span class="nb-t">+ New Invoice</span><span class="nb-p">+</span></button></div></div>
   <div class="tabs dl-tabs">${['ACTIVE','PAID'].map(t=>`<div class="tab ${tab===t?'active':''}" onclick="S.itab='${t}';rInv(document.getElementById('main-area'))">${t}</div>`).join('')}</div>
   <div class="content">
-    <div class="dl-tools"><input class="si" placeholder="${innerWidth<=560?'Search all invoices':'Search by name, address or invoice #'}" value="${_esc(S.iq||'')}" oninput="S.iq=this.value;rInv(document.getElementById('main-area'))"><button class="bs" onclick="exportToExcel()">Export</button></div>
-    ${fl.length===0?`<div class="empty dl-empty">No ${tab.toLowerCase()} invoices.<br>${(S.iq)?'No results for that search':'Convert an estimate to create one.'}</div>`:docListHtml(g,'inv')}
+    <div class="dl-tools"><input class="si" placeholder="${innerWidth<=560?'Search all invoices':'Search by name, address or invoice #'}" value="${_esc(S.iq||'')}" oninput="softSearch('inv',this.value)"><button class="bs" onclick="exportToExcel()">Export</button></div>
+    <div id="dl-body">${fl.length===0?`<div class="empty dl-empty">No ${tab.toLowerCase()} invoices.<br>${(S.iq)?'No results for that search':'Convert an estimate to create one.'}</div>`:docListHtml(g,'inv')}</div>
     ${trashLinkHtml()}
   </div>`;
   setTimeout(initSwipeDelete,100);
@@ -4382,6 +4382,20 @@ function rReports(m){
     </div>`;
 }
 
+/* Typing in a search box must not rebuild the box itself, or a phone drops the keyboard after every letter.
+   Only the list underneath is replaced. */
+function softSearch(kind,v){
+  if(kind==='inv')S.iq=v;else S.sq=v;
+  var live=document.getElementById('dl-body');
+  if(!live){render();return;}
+  var tmp=document.createElement('div');
+  try{if(kind==='inv')rInv(tmp);else if(kind==='cl')rClients(tmp);else rEst(tmp);}catch(e){render();return;}
+  var nb=tmp.querySelector('#dl-body');
+  if(!nb){render();return;}
+  live.innerHTML=nb.innerHTML;
+  if(kind==='cl'){var al=document.getElementById('cl-alpha'),na=tmp.querySelector('#cl-alpha');if(al&&na)al.innerHTML=na.innerHTML;}
+  setTimeout(initSwipeDelete,120);
+}
 function rClients(m){
   const q=(S.sq||'').toLowerCase();
   const fl=(S.clients||[]).filter(c=>!q||(c.name||'').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
@@ -4392,8 +4406,8 @@ function rClients(m){
   m.innerHTML=`
   <div class="topbar"><h1>Clients</h1><button class="bg" onclick="openNewClientForm()">+ New Client</button></div>
   <div class="content" style="padding-right:28px;">
-    <div style="margin-bottom:12px;"><input class="si" placeholder="Search clients..." value="${S.sq||''}" oninput="S.sq=this.value;rClients(document.getElementById('main-area'))"></div>
-    ${fl.length===0?`<div class="empty">No clients yet.<br>They are added automatically when you create an estimate.</div>`:
+    <div style="margin-bottom:12px;"><input class="si" placeholder="Search clients..." value="${S.sq||''}" oninput="softSearch('cl',this.value)"></div>
+    <div id="dl-body">${fl.length===0?`<div class="empty">No clients yet.<br>They are added automatically when you create an estimate.</div>`:
       Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).map(([l,items])=>`
         <div id="client-letter-${l}" style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;padding:6px 0 4px;">${l}</div>
         <div class="list-box" style="margin-bottom:10px;">
@@ -4408,9 +4422,9 @@ function rClients(m){
             </div>
             <button class="act-x" title="Delete client" data-i="${(S.clients||[]).indexOf(c)}" onclick="delClient(+this.dataset.i)">✕</button>
           </div></div>`).join('')}
-        </div>`).join('')}
+        </div>`).join('')}</div>
   </div>
-  <div style="position:fixed;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:1px;z-index:40;background:rgba(255,255,255,0.9);border-radius:10px;padding:4px 2px;">
+  <div id="cl-alpha" style="position:fixed;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:1px;z-index:40;background:rgba(255,255,255,0.9);border-radius:10px;padding:4px 2px;">
     ${letters.map(l=>`<div onclick="jumpToLetter('${l}')" style="font-size:10px;font-weight:700;color:${hasLetter(l)?'#276749':'#ccc'};cursor:${hasLetter(l)?'pointer':'default'};padding:1px 5px;line-height:1.5;-webkit-tap-highlight-color:transparent;text-align:center;">${l}</div>`).join('')}
   </div>`;
 }
