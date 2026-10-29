@@ -1533,7 +1533,7 @@ function _fixActTimes(){
 function safeRender(){if(document.querySelector('.modal-overlay,.send-overlay')||S.modal)return;if(S.previewRef){if(_wide()&&(S.view==='estimates'||S.view==='invoices')){const el=document.getElementById('sp-body');if(el){const kind=S.view==='invoices'?'inv':'est';el.innerHTML=_spListHtml(_spFilter(kind),kind,S.previewRef);setTimeout(initSwipeDelete,50);}}return;}render();}
 function fmt(n){return'£'+parseFloat(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function tot(li){return(li||[]).reduce((s,i)=>s+(parseFloat(i.rate||0)*parseFloat(i.qty||1)),0);}
-function grpByMonth(arr){const g={};(arr||[]).forEach(i=>{const k=new Date(i.date).toLocaleDateString('en-GB',{month:'long',year:'numeric'});if(!g[k])g[k]=[];g[k].push(i);});return g;}
+function grpByMonth(arr){const g={};const _t=function(x){const t=new Date(x&&x.date).getTime();return isNaN(t)?0:t;};arr=(arr||[]).map(function(x,n){return [x,n];}).sort(function(a,b){return (_t(b[0])-_t(a[0]))||(a[1]-b[1]);}).map(function(p){return p[0];});(arr||[]).forEach(i=>{const k=new Date(i.date).toLocaleDateString('en-GB',{month:'long',year:'numeric'});if(!g[k])g[k]=[];g[k].push(i);});return g;}
 function fdShort(d){try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'});}catch(e){return '';}}
 function fdLong(d){try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});}catch(e){return '';}}
 function ftime(d){try{return new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
@@ -5816,7 +5816,7 @@ var _lastFgSync=0;
     document.getElementById('ptr-t').textContent=txt;
     var i=document.getElementById('ptr-i');i.textContent=ic;
     i.style.animation=spin?'ptrspin .8s linear infinite':'';
-    i.style.transform=spin?'':(ic==='↓'?'rotate(0deg)':'rotate(180deg)');
+    i.style.transform='rotate(0deg)';
   }
   function hide(){if(!el)return;el.style.transition='all .25s';el.style.opacity='0';el.style.transform='translate(-50%,-60px)';setTimeout(function(){if(el)el.style.transition='';},300);}
   function blocked(t){
