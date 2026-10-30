@@ -3310,10 +3310,12 @@ function _syncClient(ne){
 }
 async function saveInv(){
   const ne=S.ne;
+  if(ne.isNew&&!ne.clientName){alert('Please add a client first.');return false;}
   ne.date=ne.dateInput||ne.date;
   ne.invoiceFooter=S.co.invoiceFooter||ne.invoiceFooter||'';
   const i=S.invoices.findIndex(x=>x.ref===ne.ref);
-  if(i>=0){if(!(await _conflictOK('invoices',ne,'invoice')))return false;S.invoices[i]=ne;}
+  if(i<0&&ne.isNew){await _reserveRef('invoices',ne);ne.isNew=false;S.invoices.unshift(ne);}
+  else if(i>=0){if(!(await _conflictOK('invoices',ne,'invoice')))return false;S.invoices[i]=ne;}
   _syncClient(ne);
   saveData();closeModal();return true;
 }
