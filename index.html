@@ -252,6 +252,7 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 @media(max-width:1024px){
   html,body{overflow-x:hidden !important;overscroll-behavior-x:none;max-width:100vw;}
   .mn,.content,#main-area{overflow-x:hidden !important;max-width:100vw;touch-action:pan-y;overscroll-behavior-x:none;}
+  body.zoomok .mn,body.zoomok .content,body.zoomok #main-area,body.zoomok .split-r,body.zoomok #split-detail{touch-action:pan-x pan-y pinch-zoom !important;}
   .dash-metrics{gap:8px !important;}
   .dash-metrics .metric{min-width:0;padding:12px 8px;overflow:hidden;}
   .dash-metrics .metric-label{font-size:10px;letter-spacing:0.03em;line-height:1.25;}
@@ -1708,6 +1709,7 @@ function _zoomFor(on){
   try{var mt=document.querySelector('meta[name=viewport]');if(!mt)return;
     var base='width=device-width, initial-scale=1.0, viewport-fit=cover';
     var want=on?base:base+', maximum-scale=1.0, user-scalable=no';
+    document.body.classList.toggle('zoomok',!!on);
     if(mt.getAttribute('content')!==want)mt.setAttribute('content',want);
   }catch(e){}
 }
@@ -5097,12 +5099,14 @@ function showCustomerView(ref){
   if(!doc){return;}
   const page=document.getElementById('cust-page');
   page.style.display='block';
+  try{_zoomFor(true);}catch(e){}
   if(doc.status==='DECLINED'&&!String(doc.ref||'').includes('invoice')){var cb=document.getElementById('cust-body');if(cb)cb.innerHTML=_declinedHtml();return;}
   renderCustomerView(doc);
 }
 
 function closeCustomerView(){
   window._custPreview=false;
+  try{_zoomFor(!!S.previewRef);}catch(e){}
   document.getElementById('cust-page').style.display='none';
 }
 
