@@ -358,6 +358,8 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .p-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;}
 .p-add{aspect-ratio:1;border:1.5px dashed #ccc;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#888;gap:4px;font-size:11px;}
 .p-add:hover{border-color:#276749;color:#276749;background:#f0faf4;}
+.p-del{width:28px !important;height:28px !important;top:6px !important;right:6px !important;}
+.p-cap{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:rgba(0,0,0,0.62);color:#fff;font-size:11px;line-height:1.3;padding:4px 8px;border-radius:5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .send-box{background:#fff;border-radius:12px;width:420px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
 .inv-preview{background:#fff;padding:24px;font-size:12px;color:#333;}
 .inv-logo{font-size:20px;font-weight:700;color:#276749;}
@@ -2094,7 +2096,7 @@ function showEstModal(){
     <div class="modal-body">
       <div class="modal-tabs">
         <div class="modal-tab ${dt?'active':''}" onclick="S.modalTab='details';showEstModal()">Line Items</div>
-        <div class="modal-tab ${pt?'active':''}" onclick="S.modalTab='photos';showEstModal()">Photos${photos.length>0?' ('+photos.length+')':''}</div>
+        ${isInv?'':`<div class="modal-tab ${pt?'active':''}" onclick="S.modalTab='photos';showEstModal()">Photos${photos.length>0?' ('+photos.length+')':''}</div>`}
         <div class="modal-tab ${prt?'active':''}" onclick="S.modalTab='private';showEstModal()">🔒 Private Notes${ne.privateNotes?' ●':''}</div>
         <div class="modal-tab ${S.modalTab==='signature'?'active':''}" onclick="S.modalTab='signature';showEstModal()">✍️ Signature${ne.signature?' ●':''}</div>
       </div>
@@ -2229,10 +2231,10 @@ function showEstModal(){
       ${pt?`
       <div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Job photos</div>
       <div style="font-size:12px;color:#888;">Photos appear on the quote the customer sees. Add site photos, close-ups of the work area etc.</div></div>
-      ${_isIPad()?(photos.length<10?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has 10 photos, which is the maximum.</div>'):''}
-      <div class="photo-grid">
-        ${photos.map((p,i)=>`<div class="p-thumb"><img src="${p.data}" onclick="viewPhoto('${p.data}')"><button class="p-del" onclick="removePhoto(${i})">×</button></div>`).join('')}
-        ${!_isIPad()&&photos.length<10?`<div class="p-add" onclick="openPhotos()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Add photo</span></div>`:''}
+      ${_isIPad()?(photos.length<18?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has 18 photos, which is the maximum.</div>'):''}
+      <div class="photo-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
+        ${photos.map((p,i)=>`<div class="p-thumb" style="aspect-ratio:auto;height:170px;background:#f0f0ec;"><img src="${p.data}" style="object-fit:contain;" onclick="viewPhoto('${p.data}')"><button class="p-del" aria-label="Delete photo" onclick="removePhoto(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button><div class="p-cap" onclick="editCaption(${i})">${p.caption?_escH(p.caption):'Tap to add description'}</div></div>`).join('')}
+        ${!_isIPad()&&photos.length<18?`<div class="p-add" onclick="openPhotos()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Add photo</span></div>`:''}
       </div>
       ${photos.length===0?`<div style="margin-top:14px;padding:24px;text-align:center;border:1.5px dashed #ddd;border-radius:8px;color:#888;">
         <div style="font-size:13px;margin-bottom:10px;">No photos yet</div>
@@ -3209,8 +3211,28 @@ function rmLI(i){S.ne.lineItems.splice(i,1);showEstModal();}
 function updLI(i,f,v){S.ne.lineItems[i][f]=(f==='rate'||f==='qty')?parseFloat(v)||0:v;showEstModal();}
 function openPhotos(){document.getElementById('photo-input').click();}
 function removePhoto(i){S.ne.photos.splice(i,1);showEstModal();}
+function _escH(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function editCaption(i){
+  var p=(S.ne.photos||[])[i];if(!p)return;
+  var old=document.getElementById('cap-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='cap-ov';
+  ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:380px;"><div style="font-size:14px;font-weight:600;margin-bottom:8px;">Photo description</div><input id="cap-in" class="fi" maxlength="100" placeholder="e.g. Front elevation" style="width:100%;margin-bottom:12px;font-size:16px;" value="'+_escH(p.caption||'')+'"><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="bs" id="cap-x">Cancel</button><button class="bg" id="cap-ok">Save</button></div></div>';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+  document.getElementById('cap-x').onclick=function(){ov.remove();};
+  var go=function(){var v=document.getElementById('cap-in').value.trim().slice(0,100);if(v)p.caption=v;else delete p.caption;ov.remove();showEstModal();};
+  document.getElementById('cap-ok').onclick=go;
+  document.getElementById('cap-in').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go();}});
+  setTimeout(function(){var el=document.getElementById('cap-in');if(el)el.focus();},50);
+}
+function _photoGridHtml(arr){
+  arr=arr||[];if(!arr.length)return '';
+  return '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;align-items:start;">'
+    +arr.map(function(p){return '<div style="break-inside:avoid;"><img src="'+p.data+'" style="width:100%;height:auto;border-radius:4px;display:block;">'+(p.caption?'<div style="font-size:15px;color:#111;line-height:1.35;margin-top:6px;word-break:break-word;">'+_escH(p.caption)+'</div>':'')+'</div>';}).join('')+'</div>';
+}
 function viewPhoto(src){window.open(src,'_blank');}
-var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1000, _PHOTO_TARGET=110000;
+var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1000, _PHOTO_TARGET=80000;
 function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
 function _photoFromSrc(src,maxDim,q0){return new Promise(function(res,rej){
   var im=new Image();
@@ -3230,7 +3252,7 @@ function _compressPhoto(file){var url=URL.createObjectURL(file);return _photoFro
 async function _shrinkExistingPhotos(){
   for(var i=0;i<(S.ne.photos||[]).length;i++){
     var p=S.ne.photos[i];
-    if((p.data||'').length>_PHOTO_TARGET*1.4){try{p.data=await _photoFromSrc(p.data,_PHOTO_MAXDIM,0.72);}catch(e){}}
+    if((p.data||'').length>_PHOTO_TARGET*1.15){try{p.data=await _photoFromSrc(p.data,_PHOTO_MAXDIM,0.72);}catch(e){}}
   }
 }
 function _isIPad(){try{var u=navigator.userAgent||'';return /iPad/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}catch(e){return false;}}
@@ -3242,7 +3264,7 @@ async function handlePhotos(input){
   if(_photoBytes()+files.length*_PHOTO_TARGET*1.3>_PHOTO_BUDGET)await _shrinkExistingPhotos();
   var added=0,skipped=0,full=false;
   for(var i=0;i<files.length;i++){
-    if(S.ne.photos.length>=10){full=true;break;}
+    if(S.ne.photos.length>=18){full=true;break;}
     try{
       var d=await _compressPhoto(files[i]);
       if(_photoBytes()+d.length>_PHOTO_BUDGET){skipped++;continue;}
@@ -3250,7 +3272,7 @@ async function handlePhotos(input){
     }catch(e){skipped++;}
   }
   var left=files.length-added;
-  if(left>0){alert(added+' of '+files.length+' photos added.'+(full?' A quote can have up to 10 photos.':(skipped?' The rest could not be added (the quote has no photo space left, or a file could not be read).':'')));}
+  if(left>0){alert(added+' of '+files.length+' photos added.'+(full?' A quote can have up to 18 photos.':(skipped?' The rest could not be added (the quote has no photo space left, or a file could not be read).':'')));}
   showEstModal();
 
 
@@ -3866,9 +3888,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
     <!-- Photos -->
     ${(!isI&&(doc.photos||[]).length>0)?`<div style="margin-top:20px;border-top:1px solid #eee;padding-top:16px;">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        ${(doc.photos||[]).map(p=>`<img src="${p.data}" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">`).join('')}
-      </div>
+      ${_photoGridHtml(doc.photos)}
     </div>`:''}
 
     <!-- Notes -->
@@ -3958,7 +3978,7 @@ function renderMobilePreview(doc,c,grand,showQty,showRate,showTotal){
       <span>VAT ${c.vatNumber||'185650778'}</span>
     </div>
 
-    ${(!isI&&(doc.photos||[]).length>0)?`<div style="padding:14px 16px;border-top:1px solid #eee;"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">${(doc.photos||[]).map(p=>`<img src="${p.data}" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;">`).join('')}</div></div>`:''}
+    ${(!isI&&(doc.photos||[]).length>0)?`<div style="padding:14px 16px;border-top:1px solid #eee;">${_photoGridHtml(doc.photos)}</div>`:''}
     <div style="padding:12px 16px;font-size:13px;color:#333;line-height:1.6;border-top:1px solid #eee;">${isI?(doc.invoiceFooter||c.invoiceFooter||''):(doc.quoteFooter||c.quoteFooter||'')}</div>
     ${fullTCHtml(doc)}
   </div>`;
@@ -5286,8 +5306,7 @@ function buildDesktopHtml(doc){
     +'<div style="margin-top:20px;border-top:1px solid #e0e0e0;padding-top:14px;">'
     +(logosSrc&&logosSrc.length>100?'<img src="'+logosSrc+'" style="width:100%;max-width:100%;object-fit:contain;">':'')
     +'</div>'
-    +((doc.photos&&doc.photos.length>0)?'<div style="margin-top:22px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
-      +doc.photos.map(function(ph){return'<img src="'+ph.data+'" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">';}).join('')+'</div>':'')
+    +((!isInv&&doc.photos&&doc.photos.length>0)?'<div style="margin-top:22px;">'+_photoGridHtml(doc.photos)+'</div>':'')
     +'</body></html>';
 }
 
@@ -5393,9 +5412,8 @@ function renderCustomerView(doc){
 
   // Photos
   var photosHtml='';
-  if(doc.photos&&doc.photos.length>0){
-    photosHtml='<div style="margin:20px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">'
-      +doc.photos.map(function(p){return'<img src="'+p.data+'" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:cover;display:block;break-inside:avoid;">';}).join('')+'</div>';
+  if(!isInv&&doc.photos&&doc.photos.length>0){
+    photosHtml='<div style="margin:20px 0;">'+_photoGridHtml(doc.photos)+'</div>';
   }
 
   // Bank details
