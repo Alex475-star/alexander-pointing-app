@@ -1205,7 +1205,25 @@ let S={view:'dashboard',stab:'PENDING',itab:'ACTIVE',settab:'company',estimates:
 
 // Storage — saves to localStorage AND syncs to Supabase
 const SKEY='apl_v6_data';
-function saveLocal(){try{localStorage.setItem(SKEY,JSON.stringify({estimates:S.estimates,invoices:S.invoices,clients:S.clients,activity:S.activity,actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[],view:S.view}));}catch(e){}}
+function saveLocal(){
+  var sh=(typeof _syncHash!=='undefined'&&_syncHash)?_syncHash:{};
+  var o={estimates:S.estimates,invoices:S.invoices,clients:S.clients,activity:S.activity,actGone:S.actGone||[],nextQ:S.nextQ,nextI:S.nextI,co:S.co,customItems:S.customItems||[],view:S.view,syncHash:sh};
+  try{localStorage.setItem(SKEY,JSON.stringify(o));return true;}catch(e){}
+  // not enough room on this device: documents already on the server are kept without their photos and signature
+  try{
+    var sh2={};for(var k in sh)sh2[k]=sh[k];
+    var slim=function(kind,l){return (l||[]).map(function(d){
+      if(!d||!d.ref||_isDirty(kind,d))return d;
+      if(!(d.photos&&d.photos.length)&&!d.signature)return d;
+      var c=Object.assign({},d);c.photos=[];if(c.signature)c.signature='';c._slim=1;
+      sh2[kind+':'+d.ref]=_h(JSON.stringify(c));return c;});};
+    localStorage.setItem(SKEY,JSON.stringify(Object.assign({},o,{estimates:slim('estimates',S.estimates),invoices:slim('invoices',S.invoices),syncHash:sh2})));
+    return true;
+  }catch(e){}
+  // still too big: drop the saved copy rather than keep an old one
+  try{localStorage.removeItem(SKEY);}catch(e){}
+  return false;
+}
 
 async function saveData(){
   saveLocal();
@@ -1319,9 +1337,9 @@ var _lastLoadOk=false;
 // ---- sync v2 -----------------------------------------------------------------
 var _srv={},_known=null,_synced=false,_pushing=false,_again=false,_srvMeta='',_pushedAt={},_retry=null;
 (function(){try{var k=JSON.parse(localStorage.getItem('apl_known')||'null');_known=k?new Set(k):null;}catch(e){_known=null;}})();
-var _syncHash={};(function(){try{_syncHash=JSON.parse(localStorage.getItem('apl_synchash')||'{}')||{};}catch(e){_syncHash={};}})();
+var _syncHash={};(function(){try{localStorage.removeItem('apl_synchash');}catch(e){}})();
 function _h(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(h+((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0;}return str.length+':'+h.toString(16);}
-function _saveKnown(){try{localStorage.setItem('apl_known',JSON.stringify(Array.from(_known||[])));}catch(e){}try{localStorage.setItem('apl_synchash',JSON.stringify(_syncHash));}catch(e){}}
+function _saveKnown(){try{localStorage.setItem('apl_known',JSON.stringify(Array.from(_known||[])));}catch(e){}}
 // has this document been changed on this device since it was last on the server?
 function _isDirty(kind,d){var key=kind+':'+d.ref,ls=JSON.stringify(d);if(_srv[key]!==undefined)return ls!==_srv[key];return _syncHash[key]!==undefined&&_h(ls)!==_syncHash[key];}
 // red "not saved yet" notice while anything is waiting to reach the server
@@ -1437,6 +1455,7 @@ function _bounceAct(d,read){
 async function _mergeTracking(kind,d){
   var srv=await _fetchDoc(kind,d.ref);
   if(!srv||typeof srv!=='object')return;
+  if(d._slim){if(!(d.photos&&d.photos.length)&&srv.photos&&srv.photos.length)d.photos=srv.photos;if(!d.signature&&srv.signature){d.signature=srv.signature;d.signedAt=srv.signedAt;}delete d._slim;}
   if(srv.clientName&&d.clientName&&srv.clientName!==d.clientName&&!(_known&&_known.has(kind+':'+d.ref)))return;
   d.viewCount=Math.max(d.viewCount||0,srv.viewCount||0);
   d.openCount=Math.max(d.openCount||0,srv.openCount||0);
@@ -1482,11 +1501,11 @@ async function _doPush(){
         }catch(e){_held.push(_d);failed=true;continue;}
         try{await _mergeTracking(kind,_d);}catch(e){}
       }
-      ch=ch.filter(function(d){return _held.indexOf(d)<0;});
+      ch=ch.filter(function(d){if(d._slim){failed=true;return false;}return _held.indexOf(d)<0;});
       if(!ch.length)continue;
       var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:headers,body:JSON.stringify(ch.map(function(d){return {ref:d.ref,data:d};}))});
       if(!r.ok)throw new Error('HTTP '+r.status);
-      ch.forEach(function(d){_register(kind,d);});
+      ch.forEach(function(d){_register(kind,d);});try{saveLocal();}catch(e){}
     }catch(e){failed=true;console.log('Sync error:',e);}
   }
   var ms=JSON.stringify(_metaObj());
@@ -1507,7 +1526,7 @@ async function syncToSupabase(){
 function loadData(){
   try{
     const d=localStorage.getItem(SKEY);
-    if(d){const p=JSON.parse(d);Object.assign(S,p);S.view='dashboard';S.previewRef=null;if(!S.co)S.co={...DEF_CO};else S.co={...DEF_CO,...S.co};if(!S.activity)S.activity=[];
+    if(d){const p=JSON.parse(d);Object.assign(S,p);try{_syncHash=(p.syncHash&&typeof p.syncHash==='object')?p.syncHash:{};}catch(e){}delete S.syncHash;S.view='dashboard';S.previewRef=null;if(!S.co)S.co={...DEF_CO};else S.co={...DEF_CO,...S.co};if(!S.activity)S.activity=[];
   if(!S.customItems||S.customItems.length===0){
     // Seed all standard items into customItems on first load
     S.customItems=ITEMS.map(function(it,i){return{id:'std_'+i,name:it.name,desc:it.desc||'',rate:it.rate||0};});
