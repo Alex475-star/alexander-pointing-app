@@ -1212,8 +1212,8 @@ async function loadFromSupabase(){
         const localOnly=(S.activity||[]).filter(a=>!remoteIds.has(a.time+'_'+a.ref));
         S.activity=[...m.activity,...localOnly].slice(0,200);
       }
-        if(m.nextQ)S.nextQ=m.nextQ;
-        if(m.nextI)S.nextI=m.nextI;
+        if(m.nextQ)S.nextQ=Math.max(S.nextQ||0,m.nextQ);
+        if(m.nextI)S.nextI=Math.max(S.nextI||0,m.nextI);
         if(m.co)S.co={...DEF_CO,...m.co};
         if(Array.isArray(m.customItems))S.customItems=m.customItems;
       }
@@ -1261,7 +1261,7 @@ async function loadFromSupabase(){
     _fixActTimes();
     S.activity=S.activity.slice(0,200);
     _lastLoadOk=(estRows!==null&&invRows!==null);
-    if(estRows!==null&&invRows!==null){_synced=true;purgeTrash();}
+    if(estRows!==null&&invRows!==null){try{_fixNext();}catch(e){}_synced=true;purgeTrash();}
     saveData();
     safeRender();
   }catch(e){_lastLoadOk=false;console.log('Supabase load error:',e);}
@@ -1329,6 +1329,28 @@ async function _conflictOK(kind,ne,label){
   if(srv.shareKey&&!ne.shareKey)ne.shareKey=srv.shareKey;
   return true;
 }
+// highest number this device knows about (live and in Recently deleted)
+function _localMaxRef(kind){var m=0,ls=kind==='estimates'?[S.estimates,(typeof _trashE!=='undefined'?_trashE:[])]:[S.invoices,(typeof _trashI!=='undefined'?_trashI:[])];
+  ls.forEach(function(l){(l||[]).forEach(function(d){var n=parseInt(String((d&&d.ref)||'').replace(/\D/g,''),10);if(n>m)m=n;});});return m;}
+// the counters may only ever go up, and are never behind a number already in use
+function _fixNext(){var q=_localMaxRef('estimates')+1,i=_localMaxRef('invoices')+1;if(!S.nextQ||S.nextQ<q)S.nextQ=q;if(!S.nextI||S.nextI<i)S.nextI=i;}
+// is the copy on the server the same quote/invoice as this one (so it is safe to save over it)?
+function _sameDoc(a,b){return String(a.clientName||'')===String(b.clientName||'')&&String(a.address||'')===String(b.address||'')&&JSON.stringify(a.lineItems||[])===JSON.stringify(b.lineItems||[]);}
+// give a new document the next free number (server's highest + 1, never lower than this device's own highest)
+async function _renumber(kind,d){
+  var pre=kind==='estimates'?'aplquote':'aplinvoice',old=d.ref,max=0;
+  try{var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind+'?select=ref&limit=1000',{headers:authHdr()});
+    if(!r.ok)return false;
+    (await r.json()).forEach(function(x){var n=parseInt(String(x.ref).replace(/\D/g,''),10);if(n>max)max=n;});
+  }catch(e){return false;}
+  var n=Math.max(max,_localMaxRef(kind))+1;
+  d.ref=pre+n;
+  if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n+1);else S.nextI=Math.max(S.nextI||0,n+1);
+  if(kind==='invoices')(S.estimates||[]).forEach(function(e){if(e.invoiced===old)e.invoiced=d.ref;});
+  if(S.previewRef===old)S.previewRef=d.ref;
+  try{saveLocal();}catch(e){}
+  return true;
+}
 // A new quote must not reuse a number another device has already used
 async function _reserveRef(kind,ne){
   var pre=kind==='estimates'?'aplquote':'aplinvoice';
@@ -1339,6 +1361,7 @@ async function _reserveRef(kind,ne){
       var mine=parseInt(ne.ref.replace(/\D/g,''),10);
       if(mine<=max)ne.ref=pre+(max+1);}
   }catch(e){}
+  try{var _lm=_localMaxRef(kind);if(parseInt(ne.ref.replace(/\D/g,''),10)<=_lm)ne.ref=pre+(_lm+1);}catch(e){}
   var n2=parseInt(ne.ref.replace(/\D/g,''),10);
   if(kind==='estimates')S.nextQ=Math.max(S.nextQ||0,n2+1);else S.nextI=Math.max(S.nextI||0,n2+1);
 }
@@ -1356,6 +1379,7 @@ function _bounceAct(d,read){
 async function _mergeTracking(kind,d){
   var srv=await _fetchDoc(kind,d.ref);
   if(!srv||typeof srv!=='object')return;
+  if(srv.clientName&&d.clientName&&srv.clientName!==d.clientName&&!(_known&&_known.has(kind+':'+d.ref)))return;
   d.viewCount=Math.max(d.viewCount||0,srv.viewCount||0);
   d.openCount=Math.max(d.openCount||0,srv.openCount||0);
   /* one-off repair: when the server copy carries a newer trackFix marker, take its sent time and opened flag */
@@ -1384,7 +1408,24 @@ async function _doPush(){
     var kind=lists[li][0],ch=(lists[li][1]||[]).filter(function(d){return d&&d.ref&&d.ref!=='_META_'&&_srv[kind+':'+d.ref]!==JSON.stringify(d);});
     if(!ch.length)continue;
     try{
-      for(var ci=0;ci<ch.length;ci++){try{await _mergeTracking(kind,ch[ci]);}catch(e){}}
+      var _held=[];
+      for(var ci=0;ci<ch.length;ci++){
+        var _d=ch[ci];
+        try{
+          if(!(_known&&_known.has(kind+':'+_d.ref))){
+            var _sv=await _fetchDoc(kind,_d.ref);
+            if(_sv===undefined){_held.push(_d);failed=true;continue;}
+            if(_sv&&typeof _sv==='object'&&!_sameDoc(_sv,_d)){
+              var _old=_d.ref;
+              if(await _renumber(kind,_d)){_again=true;try{toast((kind==='estimates'?'Quote #':'Invoice #')+_old+' was already used, so this one is now #'+_d.ref,'#c62828');}catch(e){}}
+              else{_held.push(_d);failed=true;continue;}
+            }
+          }
+        }catch(e){_held.push(_d);failed=true;continue;}
+        try{await _mergeTracking(kind,_d);}catch(e){}
+      }
+      ch=ch.filter(function(d){return _held.indexOf(d)<0;});
+      if(!ch.length)continue;
       var r=await apiFetch(SUPA_URL+'/rest/v1/'+kind,{method:'POST',headers:headers,body:JSON.stringify(ch.map(function(d){return {ref:d.ref,data:d};}))});
       if(!r.ok)throw new Error('HTTP '+r.status);
       ch.forEach(function(d){_register(kind,d);});
@@ -3516,6 +3557,7 @@ function convertToInv(ref){
   const e=S.estimates.find(x=>x.ref===ref);if(!e)return;
   if(!confirm('Convert estimate #'+e.ref+' to invoice?'))return;
   const inv=JSON.parse(JSON.stringify(e));
+  try{_fixNext();}catch(e){}
   inv.ref='aplinvoice'+S.nextI++;inv.status='ACTIVE';inv.date=new Date().toISOString().split('T')[0];
   delete inv.signature;delete inv.signedAt;delete inv.expiryDate;delete inv.shareKey;inv.photos=[];
   delete inv.emailOpened;delete inv.viewCount;delete inv.openCount;delete inv.openedAt;inv.emailed=false;delete inv.emailedAt;delete inv.sentByEmail;delete inv.chase;delete inv.chasedAt;delete inv.lastChase;
@@ -4192,12 +4234,14 @@ function duplicateDoc(ref){
   const isI=ref.includes('invoice');
   const newDoc=JSON.parse(JSON.stringify(orig));
   if(isI){
+    try{_fixNext();}catch(e){}
     newDoc.ref='aplinvoice'+S.nextI++;
     newDoc.status='ACTIVE';
     newDoc.date=new Date().toISOString().substring(0,10);
     delete newDoc.shareKey;
     S.invoices.unshift(newDoc);
   } else {
+    try{_fixNext();}catch(e){}
     newDoc.ref='aplquote'+S.nextQ++;
     newDoc.status='PENDING';
     newDoc.date=new Date().toISOString();
