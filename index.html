@@ -1319,9 +1319,21 @@ var _lastLoadOk=false;
 // ---- sync v2 -----------------------------------------------------------------
 var _srv={},_known=null,_synced=false,_pushing=false,_again=false,_srvMeta='',_pushedAt={},_retry=null;
 (function(){try{var k=JSON.parse(localStorage.getItem('apl_known')||'null');_known=k?new Set(k):null;}catch(e){_known=null;}})();
-function _saveKnown(){try{localStorage.setItem('apl_known',JSON.stringify(Array.from(_known||[])));}catch(e){}}
-function _forget(key){delete _srv[key];if(_known)_known.delete(key);_saveKnown();}
-function _register(kind,doc){var key=kind+':'+doc.ref;_srv[key]=JSON.stringify(doc);if(!_known)_known=new Set();_known.add(key);_pushedAt[key]=Date.now();_saveKnown();}
+var _syncHash={};(function(){try{_syncHash=JSON.parse(localStorage.getItem('apl_synchash')||'{}')||{};}catch(e){_syncHash={};}})();
+function _h(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(h+((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0;}return str.length+':'+h.toString(16);}
+function _saveKnown(){try{localStorage.setItem('apl_known',JSON.stringify(Array.from(_known||[])));}catch(e){}try{localStorage.setItem('apl_synchash',JSON.stringify(_syncHash));}catch(e){}}
+// has this document been changed on this device since it was last on the server?
+function _isDirty(kind,d){var key=kind+':'+d.ref,ls=JSON.stringify(d);if(_srv[key]!==undefined)return ls!==_srv[key];return _syncHash[key]!==undefined&&_h(ls)!==_syncHash[key];}
+// red "not saved yet" notice while anything is waiting to reach the server
+function _updUnsaved(){try{
+  var n=0;[['estimates',S.estimates],['invoices',S.invoices]].forEach(function(p){(p[1]||[]).forEach(function(d){if(d&&d.ref&&d.ref!=='_META_'&&_isDirty(p[0],d))n++;});});
+  var el=document.getElementById('unsaved-pill');
+  if(!n){if(el)el.remove();return;}
+  if(!el){el=document.createElement('div');el.id='unsaved-pill';el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:99990;background:#c62828;color:#fff;font-size:13px;font-weight:600;padding:9px 16px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none;max-width:calc(100% - 32px);text-align:center;line-height:1.35;';document.body.appendChild(el);}
+  el.textContent='Not saved yet ('+n+') – keep the app open, it will save when you have signal';
+}catch(e){}}
+function _forget(key){delete _srv[key];delete _syncHash[key];if(_known)_known.delete(key);_saveKnown();}
+function _register(kind,doc){var key=kind+':'+doc.ref;_srv[key]=JSON.stringify(doc);_syncHash[key]=_h(_srv[key]);if(!_known)_known=new Set();_known.add(key);_pushedAt[key]=Date.now();_saveKnown();}
 function _stable(doc){
   var V={viewCount:1,openCount:1,emailOpened:1,openedAt:1,shareKey:1,chase:1};
   function st(x,top){
@@ -1344,10 +1356,10 @@ function mergeDocs(kind,local,remote){
     if(!d||!d.ref||d.ref==='_META_')return;
     var key=kind+':'+d.ref;
     if(rmap[d.ref]){
-      if(_srv[key]!==undefined&&JSON.stringify(d)!==_srv[key]){out[out.indexOf(rmap[d.ref])]=d;}
+      if(_isDirty(kind,d)){out[out.indexOf(rmap[d.ref])]=d;}
     }else if((!firstRun&&!_known.has(key))||(Date.now()-(_pushedAt[key]||0)<120000)){out.push(d);}
   });
-  remote.forEach(function(d){var key=kind+':'+d.ref;_srv[key]=JSON.stringify(d);_known.add(key);});
+  remote.forEach(function(d){var key=kind+':'+d.ref;_srv[key]=JSON.stringify(d);_syncHash[key]=_h(_srv[key]);_known.add(key);});
   out.forEach(function(d){keep[kind+':'+d.ref]=1;});
   Array.from(_known).forEach(function(k){if(k.indexOf(kind+':')===0&&!keep[k])_known.delete(k);});
   _saveKnown();
@@ -1447,7 +1459,7 @@ async function _mergeTracking(kind,d){
   }
 }
 async function _doPush(){
-  if(!_synced)return;
+  if(!_synced){_updUnsaved();return;}
   var headers={'Content-Type':'application/json',...authHdr(),'Prefer':'resolution=merge-duplicates,return=minimal'};
   var failed=false,lists=[['estimates',S.estimates],['invoices',S.invoices]];
   for(var li=0;li<lists.length;li++){
@@ -1483,6 +1495,7 @@ async function _doPush(){
       if(!r2.ok)throw new Error('HTTP '+r2.status);_srvMeta=ms;}catch(e){failed=true;console.log('Sync error (settings):',e);}
   }
   if(failed){try{toast('Could not save to the server - will retry','#c62828');}catch(e){}if(!_retry)_retry=setTimeout(function(){_retry=null;syncToSupabase();},20000);}
+  _updUnsaved();
 }
 async function syncToSupabase(){
   if(!_synced)return;
@@ -1511,13 +1524,14 @@ function loadData(){
     if(sl&&ls&&ls.length>100){sl.src=ls;sl.style.display='block';if(st)st.style.display='none';}
   },100);
   updateBadge();render();
-  loadFromSupabase();
+  loadFromSupabase().then(function(){_updUnsaved();},function(){_updUnsaved();});
   setTimeout(syncVisitDates,6000);if(!window._visitSync)window._visitSync=setInterval(syncVisitDates,300000);
   // Poll every 60 seconds for real-time updates (quote views, signs etc)
   if(!window._pollInterval){
     window._pollInterval=setInterval(async function(){
       if(!sessionStorage.getItem('apl_auth'))return;
       if(document.visibilityState!=='visible')return;
+      if(!_synced){try{await loadFromSupabase();}catch(e){}_updUnsaved();return;}
       try{
         const hdrs={...authHdr()};
         const [er,ir]=await Promise.all([
@@ -5990,6 +6004,7 @@ var _lastFgSync=0;
     }catch(x){clearTimeout(guard);fin(false);}
   };
 })();
+window.addEventListener('online',function(){try{if(!sessionStorage.getItem('apl_auth'))return;if(!_synced)loadFromSupabase();else syncToSupabase();}catch(e){}});
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState!=='visible')return;
   if(S.custDoc)return;                 // customer quote view — not the app
