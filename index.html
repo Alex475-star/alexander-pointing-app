@@ -1073,7 +1073,7 @@ const ITEMS=[
   {name:"Bank Details",desc:"Alexander Pointing Ltd\nNatWest Bank\nAccount: 18135382\nSort Code: 01-01-42",rate:0}
 ];
 
-const APL_TC=`TERMS & CONDITIONS OF SERVICE
+const APL_TC_V1=`TERMS & CONDITIONS OF SERVICE
 
 1. Statutory Rights
 Nothing in these terms shall in any way exclude or restrict the customer's statutory rights under the Unfair Contract Terms Act 1977, the Supply of Goods and Services Act 1982, and any other applicable legislation.
@@ -1120,6 +1120,52 @@ A 2-year workmanship guarantee applies to repointing on external elevations of r
 By accepting this quotation, the customer agrees to be bound by these Terms & Conditions in full. Written acceptance is required before works commence.
 
 For queries contact us on 0161 327 2843.`;
+const APL_TC=`TERMS & CONDITIONS OF SERVICE
+
+Thank you for choosing Alexander Pointing Ltd. These terms set out how we work, so we're both clear before we start.
+
+1. Your rights
+Nothing in these terms affects your legal rights as a consumer, including under the Consumer Rights Act 2015.
+
+2. Our work
+We'll carry out all work with reasonable care and skill. Mortar is applied by hand, so small natural variations in colour and finish are normal.
+
+3. Before we start
+Please clear any areas we'll be working in, as we can't be responsible for items left there. We'll need an outside water supply and a standard plug socket while we're working. If either isn't available, we'll talk to you first about any extra cost, such as using a generator and the petrol to run it.
+
+4. Cables
+Unless it's included in your quote, taking down and re-fixing cables on the wall is charged separately at £40 to £80, and we'll tell you before we do it. The pointing is the main body of work and is paid for as normal under clause 5. The cable work can be paid for in advance or afterwards.
+
+5. Payment
+Payment is due within 5 days of the work being finished. Late payments may have interest added at 8% above the Bank of England base rate.
+
+6. Weather
+Pointing can't be done in wet or frosty weather, as it spoils the finish and weakens the mortar. Whether a day is suitable to work is our decision, and we ask you to respect that, because it's how we make sure your job is done properly. Once we start your job, we stay on it until it's finished, apart from any days lost to the weather.
+
+7. Materials
+Materials remain ours until the work has been paid for in full.
+
+8. Cancelling
+You can cancel within 14 days of accepting the quote, for any reason, and any deposit you've paid will be refunded in full. Just email mail@ukpointing.com, call 0161 327 2843 or write to us with your name, address and quote number. If you've asked us to start within those 14 days, you'll only pay for the work done up to when you cancel.
+
+After 14 days you can still cancel. If you haven't paid a deposit, it won't cost you anything, unless work has already started, in which case you'll pay for the work done. If you have paid a deposit, we may keep some or all of it to cover costs we've already had, such as materials or turning away other work.
+
+9. Turning down a job
+Occasionally we may need to turn down or withdraw from a job, for example if it turns out to be unsafe or unsuitable. If that happens, we'll let you know as soon as possible.
+
+10. Liability
+Our liability is limited to the value of the work agreed, and we're not responsible for indirect losses. This doesn't limit anything the law says we can't limit.
+
+11. Guarantee
+Repointing on the outside walls of houses comes with our 2-year workmanship guarantee. This doesn't cover garden walls, boundary walls or freestanding walls.
+
+12. Accepting the quote
+By accepting this quote, either by signing it or confirming in writing such as by email or WhatsApp, you're agreeing to go ahead with the work on these terms. We need your acceptance in writing before we start.
+
+Any questions, just give us a call on 0161 327 2843.`;
+// quotes signed or approved before the new terms went in keep the terms the customer accepted
+var TC_CUTOFF='2026-11-03T16:45:00.000Z';
+function _tcFor(d){try{if(d&&d.tcVersion==='v1')return APL_TC_V1;if(d&&(d.signature||d.status==='APPROVED')){var t=d.signedAt||d.approvedAt||d.date||'';if(t&&String(t)<TC_CUTOFF)return APL_TC_V1;}}catch(e){}return APL_TC;}
 const DEF_CO={firstName:'Iain',lastName:'Alexander',email:'mail@ukpointing.com',phone:'0161 327 2843',mobile:'07786 436 863',companyName:'Alexander Pointing Ltd',address:'Ivy Bank, Walmersley Old Road',city:'Bury',postcode:'BL9 6RU',website:'www.ukpointing.com',companyNumber:'87688895',vatNumber:'185650778',bankName:'NatWest',bankAccount:'18135382',sortCode:'01-01-42',quoteExpiry:'90',defaultVat:false,
 googleReviewUrl:'https://g.page/r/YOUR-GOOGLE-REVIEW-LINK/review',
 quoteEmailSubject:'Your Quote from Alexander Pointing Ltd',
@@ -3566,7 +3612,7 @@ function convertToInv(ref){
     inv.lineItems.push({name:'Bank Details',desc:`${c.companyName}\n${c.bankName}\nAccount: ${c.bankAccount}\nSort Code: ${c.sortCode}`,rate:0,qty:1,tax:'none'});
   }
   inv.invoiceFooter=S.co.invoiceFooter||'';
-  delete inv.invoiced;inv.fromQuote=e.ref;S.invoices.unshift(inv);e.status='APPROVED';e.invoiced=inv.ref;
+  delete inv.invoiced;inv.fromQuote=e.ref;S.invoices.unshift(inv);e.status='APPROVED';if(!e.approvedAt&&!e.signedAt)e.approvedAt=new Date().toISOString();e.invoiced=inv.ref;
   
   saveData();toast('Invoice #'+inv.ref+' created!');nav('invoices');
 }
@@ -3947,7 +3993,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
 function fullTCHtml(doc){
   if(!doc||String(doc.ref||'').includes('invoice'))return '';
-  var t=doc.quoteTC||(S.co&&S.co.quoteTC)||APL_TC||'';
+  var t=doc.quoteTC||(S.co&&S.co.quoteTC)||_tcFor(doc)||'';
   if(!t)return '';
   var h=t.split('\n').map(function(line){
     var l=line.trim();
@@ -4192,7 +4238,7 @@ function cycleStatus(ref){
   window[`doc_${ref.replace(/\W/g,'')}_setStatus`]=function(status){
     if(status==='DECLINED'&&!isI){openDeclineSheet(ref);return;}
     var wasD=doc.status==='DECLINED';
-    doc.status=status;saveData();
+    doc.status=status;if(status==='APPROVED'&&!isI&&!doc.approvedAt&&!doc.signedAt)doc.approvedAt=new Date().toISOString();saveData();
     if(wasD)render();else _pvRender();
   };
   document.body.appendChild(ov);
@@ -5480,7 +5526,7 @@ function renderCustomerView(doc){
     +'<div style="font-size:16px;color:#333;line-height:1.7;">'+doc.notes.split('\n').join('<br>')+'</div></div>':'';
 
   // T&C
-  var tcText=doc.quoteTC||(S.co&&S.co.quoteTC)||APL_TC||'';
+  var tcText=doc.quoteTC||(S.co&&S.co.quoteTC)||_tcFor(doc)||'';
   var tcHtml='';
   if(!isInv&&tcText){
     var tcLines=tcText.split('\n');
@@ -5509,7 +5555,7 @@ function renderCustomerView(doc){
     } else {
       acceptHtml='<div style="padding:20px 16px;background:#fff;margin-top:2px;border-top:2px solid #e0e0e0;">'
         +'<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:8px;">Accept this Quote</div>'
-        +'<div style="font-size:16px;color:#222;margin-bottom:16px;line-height:1.7;">By signing below, you confirm acceptance of this quote and agreement to the Terms and Conditions of Alexander Pointing Ltd set out below.</div>'
+        +'<div style="font-size:16px;color:#222;margin-bottom:16px;line-height:1.7;">'+(_tcFor(doc)===APL_TC_V1?'By signing below, you confirm acceptance of this quote and agreement to the Terms and Conditions of Alexander Pointing Ltd set out below.':'By signing below, you’re accepting this quote and agreeing to go ahead on the terms below. If your plans change, see clause 8 on cancelling.')+'</div>'
         +'<div id="sig-pad-wrap" style="border:1px solid #276749;border-radius:6px;background:#fff;margin-bottom:12px;overflow:hidden;">'
         +'<canvas id="cust-sig-canvas" style="width:100%;height:130px;touch-action:none;display:block;"></canvas></div>'
         +'<div style="display:flex;gap:10px;">'
