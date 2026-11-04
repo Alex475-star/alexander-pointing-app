@@ -1801,7 +1801,6 @@ function spSearch(kind,v){
 function rSplit(m,kind){
   const fl=_spFilter(kind);
   let sel=fl.find(x=>x.ref===S.previewRef);
-  if(!sel&&fl.length){sel=fl[0];}
   S.previewRef=sel?sel.ref:null;
   const old=document.querySelector('.split-l');const top=old?old.scrollTop:0;
   const isInv=kind==='inv';
@@ -1822,7 +1821,7 @@ function rSplit(m,kind){
   </div>`;
   const det=document.getElementById('split-detail');
   if(sel){rPreview(det);}
-  else det.innerHTML=`<div class="sp-empty" style="margin-top:60px;">${isInv?'No invoice selected':'Tap New Estimate to create one'}</div>`;
+  else det.innerHTML=`<div class="sp-empty" style="margin-top:60px;">${fl.length?(isInv?'Pick an invoice from the list':'Pick a quote from the list'):(isInv?'No invoices here':'Tap New Estimate to create one')}</div>`;
   const nl=document.querySelector('.split-l');if(nl)nl.scrollTop=top;
   setTimeout(initSwipeDelete,100);
   if(S.modal==='ne')showEstModal();
