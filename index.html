@@ -4002,8 +4002,8 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
 
     <!-- Reg footer -->
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid #eee;font-size:13px;font-weight:500;color:#222;display:flex;gap:24px;">
-      ${doc.hideIds?'':`<span>Company No. ${c.companyNumber||'87688895'}</span>
-      <span>VAT ${c.vatNumber||'185650778'}</span>`}
+      <span>Company No. ${c.companyNumber||'87688895'}</span>
+      <span>VAT ${c.vatNumber||'185650778'}</span>
     </div>
 
     <!-- Photos -->
@@ -4094,8 +4094,8 @@ function renderMobilePreview(doc,c,grand,showQty,showRate,showTotal){
     ${docFooterHTML(c)}
 
     <div style="padding:10px 16px;font-size:14px;font-weight:600;color:#222;display:flex;gap:20px;border-top:1px solid #eee;">
-      ${doc.hideIds?'':`<span>Company No. ${c.companyNumber||'87688895'}</span>
-      <span>VAT ${c.vatNumber||'185650778'}</span>`}
+      <span>Company No. ${c.companyNumber||'87688895'}</span>
+      <span>VAT ${c.vatNumber||'185650778'}</span>
     </div>
 
     ${(!isI&&(doc.photos||[]).length>0)?`<div style="padding:14px 16px;border-top:1px solid #eee;">${_photoGridHtml(doc.photos)}</div>`:''}
@@ -5288,7 +5288,7 @@ function _guaranteeBlock(doc,c,logoSrc){
     +'<p style="margin:0;">Not transferable upon sale of the property.</p>'
     +'</div>'
     +cond
-    +(doc&&doc.hideIds?'':'<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:13px;color:#444;">Issued by Alexander Pointing Ltd — Company No: '+((c&&c.companyNo)||'87688895')+'</div>')
+    +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:13px;color:#444;">Issued by Alexander Pointing Ltd — Company No: '+((c&&c.companyNo)||'87688895')+'</div>'
     +'</div></div></div>';
 }
 function _aplLogo(){return (document.getElementById('apl-logo-img')||{src:''}).src;}
@@ -5362,7 +5362,7 @@ function buildDesktopHtml(doc){
   }).join('');
 
   var bdHtml='';
-  if(isInv&&!doc.hideBank){
+  if(isInv){
     var bd=bankItem?bankItem.desc:'Alexander Pointing Ltd\nNatWest\nAccount: 18135382\nSort Code: 01-01-42';
     bdHtml='<div style="margin-top:16px;padding:12px;background:#f7f9f7;border:1px solid #dde8dd;border-radius:4px;font-size:14px;">'
       +'<strong style="color:#276749;">Payment Details</strong><br>'
@@ -5421,10 +5421,10 @@ function buildDesktopHtml(doc){
     +notesHtml
     +_guaranteeBlock(doc,c,logoSrc)
     +bdHtml
-    +(doc.hideIds?'':'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:14px;font-weight:600;color:#111;">'
+    +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:14px;font-weight:600;color:#111;">'
     +'<div>Company No. '+(c.companyNumber||c.companyNo||'87688895')+'</div>'
     +'<div>VAT No. '+(c.vatNumber||c.vat||'185650778')+'</div>'
-    +'</div>')
+    +'</div>'
     +'<div style="margin-top:20px;border-top:1px solid #e0e0e0;padding-top:14px;">'
     +(logosSrc&&logosSrc.length>100?'<img src="'+logosSrc+'" style="width:100%;max-width:100%;object-fit:contain;">':'')
     +'</div>'
@@ -5540,7 +5540,7 @@ function renderCustomerView(doc){
 
   // Bank details
   var bankDetailsHtml='';
-  if(isInv&&!doc.hideBank){
+  if(isInv){
     var bd=bankItem?bankItem.desc:'Alexander Pointing Ltd\nNatWest\nAccount: 18135382\nSort Code: 01-01-42';
     bankDetailsHtml='<div style="padding:16px 0;border-top:1px solid #e0e0e0;">'
       +'<div style="font-size:15px;font-weight:700;color:#333;margin-bottom:8px;">Payment Details</div>'
@@ -5736,14 +5736,14 @@ function renderCustomerView(doc){
     +guaranteeHtml
 
     // Company reg
-    +(!doc.hideIds&&(c.companyNo||c.vat)?'<div style="padding:14px 0;border-top:1px solid #e0e0e0;font-size:15px;color:#333;">'
+    +(c.companyNo||c.vat?'<div style="padding:14px 0;border-top:1px solid #e0e0e0;font-size:15px;color:#333;">'
     +(c.companyNo?'Company Number '+c.companyNo+'<br>':'')
     +(c.vat?'Vat Number '+c.vat:'')
     +'</div>':'')
 
     // Footer image
     +'<div class="footer-print" style="padding:14px 0;border-top:1px solid #e0e0e0;">'
-    +(doc.hideIds?'':'<div style="padding:12px 0;border-top:1px solid #e0e0e0;font-size:14px;font-weight:600;color:#111;line-height:1.7;">Company No. '+(c.companyNumber||c.companyNo||'87688895')+'<br>VAT No. '+(c.vatNumber||c.vat||'185650778')+'</div>')
+    +'<div style="padding:12px 0;border-top:1px solid #e0e0e0;font-size:14px;font-weight:600;color:#111;line-height:1.7;">Company No. '+(c.companyNumber||c.companyNo||'87688895')+'<br>VAT No. '+(c.vatNumber||c.vat||'185650778')+'</div>'
     +(logosSrc&&logosSrc.length>100?'<img src="'+logosSrc+'" style="width:100%;max-width:100%;object-fit:contain;display:block;">':'')
     +'</div>'
 
