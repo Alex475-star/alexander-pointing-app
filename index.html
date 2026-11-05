@@ -1814,7 +1814,7 @@ function rSplit(m,kind){
   const setTab=t=>isInv?`S.itab='${t}';S.previewRef=null;render()`:`S.stab='${t}';S.previewRef=null;render()`;
   m.innerHTML=`
   <div class="topbar sp-bar"><h1>${isInv?'Invoices':'Estimates'}</h1><div style="display:flex;gap:8px;"><button class="bs" onclick="exportToExcel()">Export</button><button class="bg" onclick="${isInv?'openNewInv()':'openNE()'}">+ New ${isInv?'Invoice':'Estimate'}</button></div></div>
-  <div class="split${_listHidden()?' nolist':''}">
+  <div class="split${_listHidden()&&sel?' nolist':''}">
     <div class="split-l">
       <div class="pad-lh"><button class="pad-ico" onclick="togList()" aria-label="Show or hide the list">${NAVSVG}</button><span class="pad-lt">${isInv?'Invoices':'Estimates'}</span><button class="pad-plus" onclick="${isInv?'openNewInv()':'(_isPad()?openNewEnquiry():openNE())'}" aria-label="New">+</button></div>
       <div class="tabs">${tabs.map(t=>`<div class="tab ${cur===t?'active':''}" onclick="${setTab(t)}">${t}</div>`).join('')}</div>
@@ -3226,7 +3226,7 @@ function _padNav(pad){
   var it=[['estimates','Estimates',"nav('estimates')"],['invoices','Invoices',"nav('invoices')"],['cal','Calendar','openCalendar()'],['activity','Activity',"nav('activity')"],['more','More',"nav('more')"]];
   el.innerHTML='<div class="pad-pill">'+it.map(function(x){return '<button class="'+(x[0]===on?'on':'')+'" onclick="'+x[2]+'">'+x[1]+(x[0]==='activity'&&un>0?'<i class="pad-dot"></i>':'')+'</button>';}).join('')+'</div>';
 }
-function togList(){try{localStorage.setItem('apl_list_hidden',localStorage.getItem('apl_list_hidden')==='1'?'0':'1');}catch(e){}var sp=document.querySelector('.split');if(sp)sp.classList.toggle('nolist',_listHidden());}
+function togList(){try{localStorage.setItem('apl_list_hidden',localStorage.getItem('apl_list_hidden')==='1'?'0':'1');}catch(e){}var sp=document.querySelector('.split');if(sp)sp.classList.toggle('nolist',_listHidden()&&!!S.previewRef);}
 function _listHidden(){try{return localStorage.getItem('apl_list_hidden')==='1';}catch(e){return false;}}
 
 function devInfoHtml(){
