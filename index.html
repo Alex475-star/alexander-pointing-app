@@ -3452,14 +3452,23 @@ function openMarkup(i){
   img.src=_photoSrc(p);
   window.addEventListener('resize',fit);
   function pt(e){var r=svg.getBoundingClientRect();return [Math.round((e.clientX-r.left)/r.width*1000*10)/10,Math.round((e.clientY-r.top)/r.height*H*10)/10];}
-  svg.addEventListener('pointerdown',function(e){if(!pw)return;e.preventDefault();try{svg.setPointerCapture(e.pointerId);}catch(x){}var q=pt(e);
-    cur=tool==='p'?{t:'p',c:col,pts:[q[0],q[1]]}:{t:tool,c:col,x1:q[0],y1:q[1],x2:q[0],y2:q[1]};draw();});
-  svg.addEventListener('pointermove',function(e){if(!cur)return;e.preventDefault();var q=pt(e);
-    if(cur.t==='p'){var n=cur.pts.length,dx=q[0]-cur.pts[n-2],dy=q[1]-cur.pts[n-1];if(dx*dx+dy*dy>=16){cur.pts.push(q[0],q[1]);if(cur.pts.length>1200)cur.pts.length=1200;}}else{cur.x2=q[0];cur.y2=q[1];}draw();});
-  var up=function(e){if(!cur)return;var c=cur;cur=null;
+  function mkDown(e){if(!pw)return;var q=pt(e);
+    cur=tool==='p'?{t:'p',c:col,pts:[q[0],q[1]]}:{t:tool,c:col,x1:q[0],y1:q[1],x2:q[0],y2:q[1]};draw();}
+  function mkMove(e){if(!cur)return;var q=pt(e);
+    if(cur.t==='p'){var n=cur.pts.length,dx=q[0]-cur.pts[n-2],dy=q[1]-cur.pts[n-1];if(dx*dx+dy*dy>=16){cur.pts.push(q[0],q[1]);if(cur.pts.length>1200)cur.pts.length=1200;}}else{cur.x2=q[0];cur.y2=q[1];}draw();}
+  var up=function(){if(!cur)return;var c=cur;cur=null;
     var big=c.t==='p'?true:(Math.abs(c.x2-c.x1)+Math.abs(c.y2-c.y1)>=18);
     if(big&&shapes.length<60)shapes.push(c);draw();};
-  svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',function(){cur=null;draw();});
+  /* mouse and pen use pointer events; fingers use touch events (reliable on iPad and iPhone Safari) */
+  svg.addEventListener('pointerdown',function(e){if(e.pointerType==='touch')return;e.preventDefault();try{svg.setPointerCapture(e.pointerId);}catch(x){}mkDown(e);});
+  svg.addEventListener('pointermove',function(e){if(e.pointerType==='touch')return;if(!cur)return;e.preventDefault();mkMove(e);});
+  svg.addEventListener('pointerup',function(e){if(e.pointerType==='touch')return;up();});
+  svg.addEventListener('pointercancel',function(e){if(e.pointerType==='touch')return;cur=null;draw();});
+  svg.addEventListener('touchstart',function(e){e.preventDefault();if(e.touches.length>1){cur=null;draw();return;}mkDown(e.touches[0]);},{passive:false});
+  svg.addEventListener('touchmove',function(e){e.preventDefault();if(e.touches.length>1){cur=null;draw();return;}if(e.touches[0])mkMove(e.touches[0]);},{passive:false});
+  svg.addEventListener('touchend',function(e){e.preventDefault();up();},{passive:false});
+  svg.addEventListener('touchcancel',function(){cur=null;draw();});
+  ov.addEventListener('touchmove',function(e){if(e.target&&e.target.closest&&e.target.closest('#mk-box'))e.preventDefault();},{passive:false});
   [].forEach.call(ov.querySelectorAll('[data-tool]'),function(b){b.onclick=function(){tool=b.getAttribute('data-tool');marks();};});
   [].forEach.call(ov.querySelectorAll('[data-col]'),function(b){b.onclick=function(){col=b.getAttribute('data-col');marks();};});
   ov.querySelector('#mk-undo').onclick=function(){shapes.pop();draw();};
