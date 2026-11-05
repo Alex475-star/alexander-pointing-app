@@ -839,6 +839,10 @@ async function apiPost(path,body){
 }
 function newShareKey(){return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function ensureShareKey(doc){
+  if(typeof _phPending!=='undefined'&&(doc.photos||[]).some(function(p){return p&&p.id&&_phPending.has(p.id);})){
+    await _phFlush();
+    if((doc.photos||[]).some(function(p){return p&&p.id&&_phPending.has(p.id);})){var er=new Error('photos pending');er.userMsg='Photos are still uploading – try again when you have signal';throw er;}
+  }
   if(!doc.shareKey){doc.shareKey=newShareKey();}
   saveLocal();
   const table=doc.ref.includes('invoice')?'invoices':'estimates';
@@ -1346,9 +1350,10 @@ function _isDirty(kind,d){var key=kind+':'+d.ref,ls=JSON.stringify(d);if(_srv[ke
 function _updUnsaved(){try{
   var n=0;[['estimates',S.estimates],['invoices',S.invoices]].forEach(function(p){(p[1]||[]).forEach(function(d){if(d&&d.ref&&d.ref!=='_META_'&&_isDirty(p[0],d))n++;});});
   var el=document.getElementById('unsaved-pill');
-  if(!n){if(el)el.remove();return;}
+  var k=(typeof _phPending!=='undefined')?_phPending.size:0;
+  if(!n&&!k){if(el)el.remove();return;}
   if(!el){el=document.createElement('div');el.id='unsaved-pill';el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:99990;background:#c62828;color:#fff;font-size:13px;font-weight:600;padding:9px 16px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none;max-width:calc(100% - 32px);text-align:center;line-height:1.35;';document.body.appendChild(el);}
-  el.textContent='Not saved yet ('+n+') – keep the app open, it will save when you have signal';
+  el.textContent=n?('Not saved yet ('+n+') – keep the app open, it will save when you have signal'):('Photos still uploading ('+k+') – keep the app open, they will send when you have signal');
 }catch(e){}}
 function _forget(key){delete _srv[key];delete _syncHash[key];if(_known)_known.delete(key);_saveKnown();}
 function _register(kind,doc){var key=kind+':'+doc.ref;_srv[key]=JSON.stringify(doc);_syncHash[key]=_h(_srv[key]);if(!_known)_known=new Set();_known.add(key);_pushedAt[key]=Date.now();_saveKnown();}
@@ -2349,11 +2354,11 @@ function showEstModal(){
         </div>`:''}
       ${pt?`
       <div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Job photos</div>
-      <div style="font-size:12px;color:#888;">Photos appear on the quote the customer sees. Add site photos, close-ups of the work area etc.</div></div>
-      ${_isIPad()?(photos.length<18?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has 18 photos, which is the maximum.</div>'):''}
+      <div style="font-size:12px;color:#888;">Photos appear on the quote the customer sees. Add site photos, close-ups of the work area etc. Tap a photo to draw on it (circle, arrow or pen).</div></div>
+      ${_isIPad()?(photos.length<_PHOTO_MAX?`<div class="p-btns"><div class="p-btn" style="background:linear-gradient(135deg,#276749,#38a169);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='4'/></svg><span>Take Photo</span><input type="file" accept="image/*" capture="environment" onchange="handlePhotos(this)"></div><div class="p-btn" style="background:linear-gradient(135deg,#1565c0,#1976d2);"><svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span>Photo Library</span><input type="file" accept="image/*" multiple onchange="handlePhotos(this)"></div></div>`:'<div style="margin:12px 0;padding:10px 12px;background:#fff8e1;border-radius:8px;font-size:13px;color:#8a6d00;">This quote has '+_PHOTO_MAX+' photos, which is the maximum.</div>'):''}
       <div class="photo-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
-        ${photos.map((p,i)=>`<div class="p-thumb" style="aspect-ratio:auto;height:170px;background:#f0f0ec;"><img src="${p.data}" style="object-fit:contain;" onclick="viewPhoto('${p.data}')"><button class="p-del" aria-label="Delete photo" onclick="removePhoto(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button><div class="p-cap" onclick="editCaption(${i})">${p.caption?_escH(p.caption):'Tap to add description'}</div></div>`).join('')}
-        ${!_isIPad()&&photos.length<18?`<div class="p-add" onclick="openPhotos()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Add photo</span></div>`:''}
+        ${photos.map((p,i)=>`<div class="p-thumb" style="aspect-ratio:auto;height:170px;background:#f0f0ec;">${_phImgHtml(p,'object-fit:contain;','openMarkup('+i+')')}<button class="p-del" aria-label="Delete photo" onclick="removePhoto(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button><div class="p-cap" onclick="editCaption(${i})">${p.caption?_escH(p.caption):'Tap to add description'}</div></div>`).join('')}
+        ${!_isIPad()&&photos.length<_PHOTO_MAX?`<div class="p-add" onclick="openPhotos()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Add photo</span></div>`:''}
       </div>
       ${photos.length===0?`<div style="margin-top:14px;padding:24px;text-align:center;border:1.5px dashed #ddd;border-radius:8px;color:#888;">
         <div style="font-size:13px;margin-bottom:10px;">No photos yet</div>
@@ -3348,9 +3353,124 @@ function editCaption(i){
 function _photoGridHtml(arr){
   arr=arr||[];if(!arr.length)return '';
   return '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;align-items:start;">'
-    +arr.map(function(p){return '<div style="break-inside:avoid;"><img src="'+p.data+'" style="width:100%;height:auto;border-radius:4px;display:block;">'+(p.caption?'<div style="font-size:15px;color:#111;line-height:1.35;margin-top:6px;word-break:break-word;">'+_escH(p.caption)+'</div>':'')+'</div>';}).join('')+'</div>';
+    +arr.map(function(p){return '<div class="pdf-avoid" style="break-inside:avoid;"><div style="position:relative;line-height:0;">'+_phImgHtml(p,'width:100%;height:auto;border-radius:4px;display:block;')+'</div>'+(p.caption?'<div style="font-size:15px;color:#111;line-height:1.35;margin-top:6px;word-break:break-word;">'+_escH(p.caption)+'</div>':'')+'</div>';}).join('')+'</div>';
 }
 function viewPhoto(src){window.open(src,'_blank');}
+// ---- 9f21 photos in the photo storage ----
+window.addEventListener('online',function(){try{_phFlush();}catch(e){}});
+setTimeout(function(){try{_phFlush();}catch(e){}},1500);
+setInterval(function(){try{if(_phPending.size)_phFlush();}catch(e){}},30000);
+var _PHOTO_MAX=30,_PH_DIM=1600,_PH_Q=0.82;
+var _phUrl={},_phMem={},_phPending=new Set(),_phBusy=null,_phDbP=null;
+function _phNewId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',b=crypto.getRandomValues(new Uint8Array(28)),s='ph_';for(var i=0;i<28;i++)s+=a[b[i]%36];return s;}
+function _photoSrc(p){if(!p)return '';if(p.data)return p.data;if(p.id)return _phUrl[p.id]||(SUPA_URL+'/photo/'+p.id);return '';}
+function _phDb(){if(_phDbP)return _phDbP;_phDbP=new Promise(function(res,rej){try{var r=indexedDB.open('apl_photos',1);r.onupgradeneeded=function(){r.result.createObjectStore('pending',{keyPath:'id'});};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};r.onblocked=function(){rej(new Error('blocked'));};}catch(e){rej(e);}});_phDbP.catch(function(){_phDbP=null;});return _phDbP;}
+function _phTx(mode,fn){return _phDb().then(function(db){return new Promise(function(res,rej){var t=db.transaction('pending',mode),out,r=fn(t.objectStore('pending'));if(r)r.onsuccess=function(){out=r.result;};t.oncomplete=function(){res(out);};t.onerror=t.onabort=function(){rej(t.error||new Error('idb'));};});});}
+async function _phPutPending(id,buf){try{await _phTx('readwrite',function(st){return st.put({id:id,buf:buf,at:Date.now()});});}catch(e){_phMem[id]=buf;}_phPending.add(id);}
+async function _phAllPending(){var l=[];try{l=(await _phTx('readonly',function(st){return st.getAll();}))||[];}catch(e){}Object.keys(_phMem).forEach(function(id){if(!l.some(function(x){return x.id===id;}))l.push({id:id,buf:_phMem[id]});});return l;}
+async function _phDelPending(id){delete _phMem[id];try{await _phTx('readwrite',function(st){return st.delete(id);});}catch(e){}_phPending.delete(id);}
+// send any photos still on this device to the photo storage
+function _phFlush(){
+  if(_phBusy)return _phBusy;
+  _phBusy=(async function(){
+    var l=await _phAllPending();
+    l.forEach(function(x){_phPending.add(x.id);if(!_phUrl[x.id]){try{_phUrl[x.id]=URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));}catch(e){}}});
+    if(!getToken())return;
+    for(var i=0;i<l.length;i++){var x=l[i];
+      try{var r=await apiFetch(SUPA_URL+'/photos/'+x.id,{method:'PUT',headers:{'Content-Type':'image/jpeg'},body:new Blob([x.buf],{type:'image/jpeg'})});
+        if(r.ok)await _phDelPending(x.id);else if(r.status===503||r.status>=500||r.status===401||r.status===429)break;}
+      catch(e){break;}
+    }
+  })().catch(function(){}).then(function(){_phBusy=null;try{_updUnsaved();}catch(e){}});
+  return _phBusy;
+}
+// a photo that is not on the server yet (still on another device): show a grey box and try again later
+function _phErr(img){try{var id=img.getAttribute('data-pid');if(!id)return;var n=+(img.getAttribute('data-try')||0);if(n>=30)return;img.setAttribute('data-try',n+1);
+  if(_phUrl[id]&&img.src!==_phUrl[id]){img.src=_phUrl[id];return;}
+  img.style.minHeight='120px';img.style.background='#e9e9e6';img.alt='Photo still uploading';
+  setTimeout(function(){if(img.isConnected)img.src=(_phUrl[id]||(SUPA_URL+'/photo/'+id+'?t='+Date.now()));},n<3?3000:20000);}catch(e){}}
+function _phMake(file){return new Promise(function(res,rej){
+  var url=URL.createObjectURL(file),im=new Image();
+  im.onload=function(){try{
+    var sc=Math.min(1,_PH_DIM/Math.max(im.naturalWidth,im.naturalHeight));
+    var c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*sc));c.height=Math.max(1,Math.round(im.naturalHeight*sc));
+    var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(url);
+    var tryQ=function(q){c.toBlob(function(b){if(!b)return rej(new Error('could not read photo'));if(b.size>1500000&&q>0.6)return tryQ(q-0.12);res({blob:b,w:c.width,h:c.height});},'image/jpeg',q);};
+    tryQ(_PH_Q);
+  }catch(e){URL.revokeObjectURL(url);rej(e);}};
+  im.onerror=function(){URL.revokeObjectURL(url);rej(new Error('unreadable image'));};
+  im.src=url;});}
+// drawings on a photo (circle, arrow, pen) are kept as shapes, never burned into the photo
+function _mkNum(v){v=+v;return isFinite(v)?Math.round(Math.max(-20000,Math.min(20000,v))*10)/10:0;}
+function _mkPaths(s){
+  if(!s)return [];
+  if(s.t==='c'){var x1=_mkNum(s.x1),y1=_mkNum(s.y1),x2=_mkNum(s.x2),y2=_mkNum(s.y2),cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.max(1,Math.abs(x2-x1)/2),ry=Math.max(1,Math.abs(y2-y1)/2);
+    return ['M'+_mkNum(cx-rx)+' '+_mkNum(cy)+'a'+_mkNum(rx)+' '+_mkNum(ry)+' 0 1 0 '+_mkNum(2*rx)+' 0a'+_mkNum(rx)+' '+_mkNum(ry)+' 0 1 0 '+_mkNum(-2*rx)+' 0'];}
+  if(s.t==='a'){var a1=_mkNum(s.x1),b1=_mkNum(s.y1),a2=_mkNum(s.x2),b2=_mkNum(s.y2),dx=a2-a1,dy=b2-b1,L=Math.sqrt(dx*dx+dy*dy)||1,ux=dx/L,uy=dy/L,hl=Math.min(60,Math.max(26,L*0.35)),hw=hl*0.6,bx=a2-ux*hl,by=b2-uy*hl;
+    return ['M'+a1+' '+b1+'L'+a2+' '+b2,'M'+_mkNum(bx-uy*hw)+' '+_mkNum(by+ux*hw)+'L'+a2+' '+b2+'L'+_mkNum(bx+uy*hw)+' '+_mkNum(by-ux*hw)];}
+  if(s.t==='p'&&Array.isArray(s.pts)&&s.pts.length>=2){var q=s.pts,d='M'+_mkNum(q[0])+' '+_mkNum(q[1]);for(var i=2;i+1<q.length;i+=2)d+='L'+_mkNum(q[i])+' '+_mkNum(q[i+1]);if(q.length<4)d+='l0.1 0';return [d];}
+  return [];
+}
+function _mkShape(s){var col=s&&s.c==='y'?'#ffd600':'#e53935',ds=_mkPaths(s),a='',b='';
+  ds.forEach(function(d){a+='<path d="'+d+'" fill="none" stroke="rgba(0,0,0,0.45)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>';b+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';});return a+b;}
+function _mkH(p){return Math.max(1,Math.round(1000*(+p.h||1)/(+p.w||1)));}
+function _mkSvgUri(p){if(!p||!Array.isArray(p.mk)||!p.mk.length||!(+p.w)||!(+p.h))return '';
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 '+_mkH(p)+'">'+p.mk.map(_mkShape).join('')+'</svg>');}
+// one photo as html: the photo, plus its drawings laid over it
+function _phImgHtml(p,style,onclick){
+  var pid=p&&p.id&&!p.data?' data-pid="'+_escH(p.id)+'" onerror="_phErr(this)"':'';
+  var mk=_mkSvgUri(p);
+  return '<img src="'+_escH(_photoSrc(p))+'"'+pid+' style="'+(style||'')+'"'+(onclick?' onclick="'+onclick+'"':'')+'>'
+    +(mk?'<img src="'+mk+'" alt="" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">':'');
+}
+function openMarkup(i){
+  var ne=S.ne,p=(ne&&ne.photos||[])[i];if(!p)return;
+  var shapes=JSON.parse(JSON.stringify(Array.isArray(p.mk)?p.mk:[])),start=JSON.stringify(shapes),tool='c',col='r',cur=null,pw=0,ph=0,H=1000;
+  var old=document.getElementById('mk-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='mk-ov';
+  ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;background:#111;z-index:99999;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;';
+  var bt='min-height:46px;min-width:58px;padding:0 12px;border-radius:10px;border:2px solid #444;background:#222;color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
+  ov.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px 8px;gap:8px;">'
+    +'<button id="mk-x" style="'+bt+'">Cancel</button><div style="color:#ddd;font-size:14px;text-align:center;">Draw on photo</div><button id="mk-ok" style="'+bt+'background:#276749;border-color:#276749;">Save</button></div>'
+    +'<div id="mk-stage" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:4px;">'
+    +'<div id="mk-box" style="position:relative;"><img id="mk-img" draggable="false" style="display:block;width:100%;height:100%;-webkit-user-drag:none;pointer-events:none;">'
+    +'<svg id="mk-svg" xmlns="http://www.w3.org/2000/svg" style="position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;cursor:crosshair;"></svg></div>'
+    +'<div id="mk-msg" style="color:#bbb;font-size:14px;display:none;padding:20px;text-align:center;">This photo is still uploading from another device. Try again shortly.</div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px);">'
+    +'<button data-tool="c" style="'+bt+'">◯ Circle</button><button data-tool="a" style="'+bt+'">➚ Arrow</button><button data-tool="p" style="'+bt+'">✎ Pen</button>'
+    +'<button data-col="r" aria-label="Red" style="'+bt+'min-width:46px;padding:0;"><span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#e53935;vertical-align:middle;"></span></button>'
+    +'<button data-col="y" aria-label="Yellow" style="'+bt+'min-width:46px;padding:0;"><span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#ffd600;vertical-align:middle;"></span></button>'
+    +'<button id="mk-undo" style="'+bt+'">Undo</button><button id="mk-clear" style="'+bt+'">Clear</button></div>';
+  document.body.appendChild(ov);
+  var img=ov.querySelector('#mk-img'),svg=ov.querySelector('#mk-svg'),box=ov.querySelector('#mk-box'),stage=ov.querySelector('#mk-stage');
+  function marks(){[].forEach.call(ov.querySelectorAll('[data-tool]'),function(b){b.style.borderColor=b.getAttribute('data-tool')===tool?'#fff':'#444';});
+    [].forEach.call(ov.querySelectorAll('[data-col]'),function(b){b.style.borderColor=b.getAttribute('data-col')===col?'#fff':'#444';});}
+  function draw(){svg.innerHTML=shapes.concat(cur?[cur]:[]).map(_mkShape).join('');}
+  function fit(){if(!pw)return;var r=stage.getBoundingClientRect(),sw=Math.max(50,r.width-8),sh=Math.max(50,r.height-8),k=Math.min(sw/pw,sh/ph);box.style.width=Math.floor(pw*k)+'px';box.style.height=Math.floor(ph*k)+'px';}
+  img.onload=function(){pw=img.naturalWidth;ph=img.naturalHeight;H=Math.max(1,Math.round(1000*ph/pw));svg.setAttribute('viewBox','0 0 1000 '+H);fit();draw();};
+  img.onerror=function(){box.style.display='none';ov.querySelector('#mk-msg').style.display='block';};
+  img.src=_photoSrc(p);
+  window.addEventListener('resize',fit);
+  function pt(e){var r=svg.getBoundingClientRect();return [Math.round((e.clientX-r.left)/r.width*1000*10)/10,Math.round((e.clientY-r.top)/r.height*H*10)/10];}
+  svg.addEventListener('pointerdown',function(e){if(!pw)return;e.preventDefault();try{svg.setPointerCapture(e.pointerId);}catch(x){}var q=pt(e);
+    cur=tool==='p'?{t:'p',c:col,pts:[q[0],q[1]]}:{t:tool,c:col,x1:q[0],y1:q[1],x2:q[0],y2:q[1]};draw();});
+  svg.addEventListener('pointermove',function(e){if(!cur)return;e.preventDefault();var q=pt(e);
+    if(cur.t==='p'){var n=cur.pts.length,dx=q[0]-cur.pts[n-2],dy=q[1]-cur.pts[n-1];if(dx*dx+dy*dy>=16){cur.pts.push(q[0],q[1]);if(cur.pts.length>1200)cur.pts.length=1200;}}else{cur.x2=q[0];cur.y2=q[1];}draw();});
+  var up=function(e){if(!cur)return;var c=cur;cur=null;
+    var big=c.t==='p'?true:(Math.abs(c.x2-c.x1)+Math.abs(c.y2-c.y1)>=18);
+    if(big&&shapes.length<60)shapes.push(c);draw();};
+  svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',function(){cur=null;draw();});
+  [].forEach.call(ov.querySelectorAll('[data-tool]'),function(b){b.onclick=function(){tool=b.getAttribute('data-tool');marks();};});
+  [].forEach.call(ov.querySelectorAll('[data-col]'),function(b){b.onclick=function(){col=b.getAttribute('data-col');marks();};});
+  ov.querySelector('#mk-undo').onclick=function(){shapes.pop();draw();};
+  ov.querySelector('#mk-clear').onclick=function(){shapes=[];draw();};
+  var close=function(){window.removeEventListener('resize',fit);ov.remove();};
+  ov.querySelector('#mk-x').onclick=function(){if(JSON.stringify(shapes)!==start&&!confirm('Discard the changes to this drawing?'))return;close();};
+  ov.querySelector('#mk-ok').onclick=function(){
+    if(shapes.length){p.mk=shapes;if(!(+p.w)||!(+p.h)){p.w=pw;p.h=ph;}}else delete p.mk;
+    close();if(S.ne===ne)showEstModal();};
+  marks();
+}
 var _PHOTO_BUDGET=1600000, _PHOTO_MAXDIM=1000, _PHOTO_TARGET=80000;
 function _photoBytes(){return (S.ne.photos||[]).reduce(function(a,p){return a+((p.data||'').length);},0);}
 function _photoFromSrc(src,maxDim,q0){return new Promise(function(res,rej){
@@ -3378,23 +3498,24 @@ function _isIPad(){try{var u=navigator.userAgent||'';return /iPad/.test(u)||(nav
 async function handlePhotos(input){
   var files=Array.from(input.files||[]);input.value='';
   if(!files.length)return;
-  if(!S.ne.photos)S.ne.photos=[];
+  var ne=S.ne;if(!ne)return;
+  if(!ne.photos)ne.photos=[];
   toast('Adding photo'+(files.length>1?'s':'')+'...','#276749');
-  if(_photoBytes()+files.length*_PHOTO_TARGET*1.3>_PHOTO_BUDGET)await _shrinkExistingPhotos();
   var added=0,skipped=0,full=false;
   for(var i=0;i<files.length;i++){
-    if(S.ne.photos.length>=18){full=true;break;}
+    if(ne.photos.length>=_PHOTO_MAX){full=true;break;}
     try{
-      var d=await _compressPhoto(files[i]);
-      if(_photoBytes()+d.length>_PHOTO_BUDGET){skipped++;continue;}
-      S.ne.photos.push({data:d,name:files[i].name});added++;
+      var r=await _phMake(files[i]),id=_phNewId(),buf=await r.blob.arrayBuffer();
+      await _phPutPending(id,buf);
+      try{_phUrl[id]=URL.createObjectURL(r.blob);}catch(e){}
+      ne.photos.push({id:id,w:r.w,h:r.h});added++;
     }catch(e){skipped++;}
   }
   var left=files.length-added;
-  if(left>0){alert(added+' of '+files.length+' photos added.'+(full?' A quote can have up to 18 photos.':(skipped?' The rest could not be added (the quote has no photo space left, or a file could not be read).':'')));}
-  showEstModal();
-
-
+  if(left>0){alert(added+' of '+files.length+' photos added.'+(full?' A quote can have up to '+_PHOTO_MAX+' photos.':(skipped?' The rest could not be read.':'')));}
+  if(S.ne===ne)showEstModal();
+  try{_updUnsaved();}catch(e){}
+  _phFlush();
 }
 
 function openNE(){
@@ -3530,7 +3651,7 @@ async function doSendEmail(ref,link,btn){
   const to=doc.email||'';
   if(!to){toast('No email address on file — use copy or share instead','#e65100');return;}
   btn.textContent='Sending...';btn.disabled=true;
-  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');btn.textContent='\u2709\uFE0F Send Email';btn.disabled=false;return;}
+  try{await ensureShareKey(doc);}catch(e){toast(e&&e.userMsg?'\u274C '+e.userMsg:'\u274C Could not prepare the link \u2014 try again','#c62828');btn.textContent='\u2709\uFE0F Send Email';btn.disabled=false;return;}
   // Use the link parameter directly — don't regex-extract from body (could grab Google Review URL first)
   const bodyHtml=body.replace(/https?:\/\/[^\s]+/g,'').replace(/\n/g,'<br>').replace(/View your quote here:<br>/i,'').replace(/View your invoice here:<br>/i,'');
   const html=`<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">${bodyHtml}<br><br><a href="${link}" style="display:inline-block;padding:14px 28px;background:#276749;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">View Your ${isI?'Invoice':'Quote'} →</a>
@@ -3563,7 +3684,7 @@ async function _autoSms(ref,doc){
 function toggleAutoSms(){S.co=S.co||{};S.co.smsAuto=!S.co.smsAuto;saveData();rSettings(document.getElementById('main-area'));}
 async function doShareWithBody(ref,link){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
-  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');return;}
+  try{await ensureShareKey(doc);}catch(e){toast(e&&e.userMsg?'\u274C '+e.userMsg:'\u274C Could not prepare the link \u2014 try again','#c62828');return;}
   const isI=ref.includes('invoice');
   const subj=document.getElementById('share-subj')?.value||'';
   const body=document.getElementById('share-body')?.value||'';
@@ -3588,7 +3709,7 @@ async function doShareWithBody(ref,link){
 
 async function copyShareBody(ref,link){
   const doc=S.estimates.find(e=>e.ref===ref)||S.invoices.find(i=>i.ref===ref);if(!doc)return;
-  try{await ensureShareKey(doc);}catch(e){toast('\u274C Could not prepare the link \u2014 try again','#c62828');return;}
+  try{await ensureShareKey(doc);}catch(e){toast(e&&e.userMsg?'\u274C '+e.userMsg:'\u274C Could not prepare the link \u2014 try again','#c62828');return;}
   const body=document.getElementById('share-body')?.value||link;
   try{await navigator.clipboard.writeText(body);}catch(e){}
   toast('📋 Message copied to clipboard');
@@ -4245,7 +4366,7 @@ async function shareBySMS(ref){
     toast(!num?'No mobile number on this quote — choose how to send':'Texting needs a phone or iPad — choose how to send','#e65100');
     openShareModal(ref);return;
   }
-  try{await ensureShareKey(doc);}catch(e){toast('❌ Could not prepare the link — try again','#c62828');return;}
+  try{await ensureShareKey(doc);}catch(e){toast(e&&e.userMsg?'❌ '+e.userMsg:'❌ Could not prepare the link — try again','#c62828');return;}
   var url=_smsUrl(num,_smsText(doc,ref));
   markShared(ref,doc);
   _openSms(url);
@@ -5166,8 +5287,15 @@ async function downloadBackup(){
     var data={app:'APL Ledger',created:new Date().toISOString(),estimates:S.estimates.concat(_trashE||[]),invoices:S.invoices.concat(_trashI||[]),
       settings:{clients:S.clients,activity:S.activity,co:co,nextQ:S.nextQ,nextI:S.nextI}};
     var day=data.created.slice(0,10),name='APL-backup-'+day+'.zip',enc=new TextEncoder();
-    var readme='APL Ledger backup, '+day+'\r\n\r\nbackup.json holds every quote, invoice, client and your company settings (including photos and anything in Recently deleted). Login details are never included. It contains customers\' personal details, so keep it private.\r\nTo restore, send this file to Claude.';
-    var blob=await _makeZip([{name:'backup.json',data:enc.encode(JSON.stringify(data))},{name:'README.txt',data:enc.encode(readme)}]);
+    var readme='APL Ledger backup, '+day+'\r\n\r\nbackup.json holds every quote, invoice, client and your company settings (including photos and anything in Recently deleted). Newer photos are in the photos folder, named by their id. Login details are never included. It contains customers\' personal details, so keep it private.\r\nTo restore, send this file to Claude.';
+    var zf=[{name:'backup.json',data:enc.encode(JSON.stringify(data))}],ids={},miss=0;
+    data.estimates.concat(data.invoices).forEach(function(d){(d&&d.photos||[]).forEach(function(p){if(p&&p.id&&!p.data&&/^ph_[a-z0-9]+$/.test(p.id))ids[p.id]=1;});});
+    var idl=Object.keys(ids);
+    for(var pi=0;pi<idl.length;pi++){say('Preparing… photo '+(pi+1)+' of '+idl.length);
+      try{var pr=await fetch(_phUrl[idl[pi]]||(SUPA_URL+'/photo/'+idl[pi]));if(!pr.ok)throw 0;zf.push({name:'photos/'+idl[pi]+'.jpg',data:new Uint8Array(await pr.arrayBuffer())});}catch(e){miss++;}}
+    if(miss)readme+='\r\n\r\n'+miss+' photo(s) could not be fetched when this backup was made.';
+    zf.push({name:'README.txt',data:enc.encode(readme)});
+    var blob=await _makeZip(zf);
     var mobile=/iPhone|iPad|iPod|Android/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
     var file=null;try{file=new File([blob],name,{type:'application/zip'});}catch(e){}
     if(mobile&&file&&navigator.canShare&&navigator.canShare({files:[file]})){
@@ -5475,8 +5603,18 @@ async function downloadPdf(){
         });
       }
     });
+    [].slice.call(fr.querySelectorAll('.pdf-avoid')).forEach(function(it){var g=it.parentNode;if(g&&g.style&&g.style.display==='grid'){g.style.display='block';g.style.fontSize='0';}
+      it.style.display='inline-block';it.style.width='49%';it.style.marginRight='1%';it.style.marginBottom='12px';it.style.verticalAlign='top';it.style.fontSize='15px';});
     var imgs=[].slice.call(fr.querySelectorAll('img'));
     await Promise.all(imgs.map(function(im){return im.complete?1:new Promise(function(r){im.onload=im.onerror=r;});}));
+    var _li=function(src,co){return new Promise(function(res,rej){var i=new Image();if(co)i.crossOrigin='anonymous';i.onload=function(){res(i);};i.onerror=rej;i.src=src;});};
+    for(var bi=0;bi<imgs.length;bi++){var im=imgs[bi],ov=im.nextElementSibling;
+      if(!ov||ov.tagName!=='IMG'||!/^data:image\/svg/.test(ov.getAttribute('src')||''))continue;
+      try{var src=im.getAttribute('src')||'',base=await _li(src,/^https?:/.test(src)),ovi=await _li(ov.getAttribute('src'),false);
+        var cv=document.createElement('canvas');cv.width=base.naturalWidth;cv.height=base.naturalHeight;var cx=cv.getContext('2d');cx.drawImage(base,0,0);cx.drawImage(ovi,0,0,cv.width,cv.height);
+        var du=cv.toDataURL('image/jpeg',0.9);im.removeAttribute('onerror');im.removeAttribute('data-pid');im.src=du;ov.remove();
+        await new Promise(function(r){if(im.complete)r();else im.onload=im.onerror=r;});}catch(e){}
+    }
     await new Promise(function(r){setTimeout(r,300);});
     _sy=window.scrollY||0;window.scrollTo(0,0);
     await window.html2pdf().set({
@@ -5505,7 +5643,8 @@ function printDesktop(){
   if(!w){alert('Please allow popups for this site to print.');return;}
   w.document.write(html);
   w.document.close();
-  setTimeout(function(){w.print();},800);
+  var t0=Date.now();(function chk(){var ims=[];try{ims=[].slice.call(w.document.images||[]);}catch(e){}
+    if(ims.every(function(i){return i.complete;})||Date.now()-t0>10000)setTimeout(function(){try{w.print();}catch(e){}},400);else setTimeout(chk,250);})();
 }
 
 
