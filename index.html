@@ -3787,7 +3787,7 @@ function convertToInv(ref){
   if(!confirm('Convert estimate #'+e.ref+' to invoice?'))return;
   const inv=JSON.parse(JSON.stringify(e));
   try{_fixNext();}catch(e){}
-  inv.ref='aplinvoice'+S.nextI++;inv.status='ACTIVE';inv.date=new Date().toISOString().split('T')[0];
+  inv.ref='aplinvoice'+S.nextI++;inv.status='ACTIVE';inv.date=new Date().toISOString().split('T')[0];inv.dateInput=inv.date;
   delete inv.signature;delete inv.signedAt;delete inv.expiryDate;delete inv.shareKey;inv.photos=[];
   delete inv.emailOpened;delete inv.viewCount;delete inv.openCount;delete inv.openedAt;inv.emailed=false;delete inv.emailedAt;delete inv.sentByEmail;delete inv.chase;delete inv.chasedAt;delete inv.lastChase;
   if(!inv.lineItems.find(l=>l.name==='Bank Details')){
