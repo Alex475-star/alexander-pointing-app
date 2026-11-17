@@ -2250,7 +2250,7 @@ function showEstModal(){
               <div><label style="font-size:11px;color:#888;">Email</label><input class="fi" value="${ne.email||''}" placeholder="Email address" oninput="S.ne.email=this.value"></div>
             </div>
           </div>`:''}\n          ${S.showCS?`<div style="margin-top:6px;">
-            <input class="si" placeholder="Search existing clients or type new name..." autocapitalize="words" value="${S.cs||''}" oninput="S.cs=this.value;showEstModal()" style="height:48px;font-size:15px;padding:0 14px;">
+            <input class="si" placeholder="Search existing clients or type new name..." autocapitalize="words" value="${S.cs||''}" oninput="S.cs=this.value;showEstModal();_refocus('input[placeholder^=&quot;Search existing clients&quot;]')" style="height:48px;font-size:15px;padding:0 14px;">
             <div class="csb">
               ${mc.map(c=>`<div class="csr" onclick="pickClient('${encodeURIComponent(JSON.stringify(c))}')">${c.name}<span style="font-size:11px;color:#888;"> — ${c.serviceAddress||c.address||''}</span></div>`).join('')}
               <div class="csr" style="color:#276749;font-weight:600;" onclick="openNewClientForm()">+ New client: "${S.cs||'New Client'}"</div>
@@ -3283,6 +3283,7 @@ function pickClient(enc){
 }
 function newClient(){openNewClientForm();}
 function togglePicker(){S.picker=!S.picker;showEstModal();}
+function _refocus(sel){try{var el=document.querySelector(sel);if(el){el.focus();var n=(el.value||'').length;try{el.setSelectionRange(n,n);}catch(e){}}}catch(e){}}
 function filterPicker(q){document.querySelectorAll('#picker-list .item-row').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';});}
 function addLI(i){const it=ITEMS[i];S.ne.lineItems.push({name:it.name,desc:it.desc,rate:it.rate||0,qty:1,tax:'none'});S.picker=false;showEstModal();}
 function addLI2(i){const combined=(S.customItems||[]);const it=combined[i];if(!it)return;S.ne.lineItems.push({name:it.name,desc:it.desc,rate:it.rate||0,qty:1,tax:'none'});S.picker=false;showEstModal();}
@@ -4789,7 +4790,7 @@ function rItems(m){
     <button class="bg" onclick="openItemForm(null)">+ New Item</button>
   </div>
   <div class="content">
-    <div style="margin-bottom:12px;"><input class="si" placeholder="Search items..." value="${S.itemSearch||''}" oninput="S.itemSearch=this.value;rItems(document.getElementById('main-area'))"></div>
+    <div style="margin-bottom:12px;"><input class="si" placeholder="Search items..." value="${S.itemSearch||''}" oninput="S.itemSearch=this.value;rItems(document.getElementById('main-area'));_refocus('#main-area input.si')"></div>
     ${Object.keys(g).length===0?`<div class="empty">No items found.</div>`:''}
     <div class="list-box">
       ${Object.entries(g).sort((a,b)=>a[0].localeCompare(b[0])).map(([l,items])=>`
