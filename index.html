@@ -1990,7 +1990,7 @@ function rDash(m){
             <div style="font-size:11px;color:#888;margin-top:2px;">${e.ref} · ${e.date?new Date(e.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:10px;">
-            <div style="font-size:13px;font-weight:700;color:#276749;filter:${pm?'blur(6px)':'none'}">${fmt(calcGrandTotal(e))}</div>
+            <div style="font-size:13px;font-weight:700;color:#276749;">${fmt(calcGrandTotal(e))}</div>
             ${statusBadge(e.status)}
           </div>
         </div>`).join('')}
