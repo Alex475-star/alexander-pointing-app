@@ -187,7 +187,6 @@ input,textarea,select,.fi,.si,.li,.ta,.login-input,.mfa-digit{-webkit-user-selec
 .dl-pill{font-size:12px;font-weight:700;letter-spacing:.03em;padding:5px 12px;border-radius:999px;flex-shrink:0;}
 .dl-addr{font-size:14px;color:#8a8a84;line-height:1.45;min-width:0;}
 .dl-amt{font-size:16px;font-weight:700;color:#141414;font-variant-numeric:tabular-nums;}
-body.privacy-on .dl-amt,body.privacy-on .sp-amt,body.privacy-on .metric-val{filter:blur(7px);}
 .dl-seen{display:flex;align-items:center;gap:5px;font-size:13px;color:#75756e;margin-top:6px;font-weight:400;}
 .dl-seen svg{width:15px;height:15px;}
 .dl-wait{font-size:12px;margin-top:4px;font-weight:600;}
@@ -1841,7 +1840,6 @@ function _zoomFor(on){
   }catch(e){}
 }
 function render(){
-  try{document.body.classList.toggle('privacy-on',!!S.privacyMode);}catch(e){}
   var _pd=_isPad();document.body.classList.toggle('pad',_pd);_padNav(_pd);
   _renderInner();
   _zoomFor(!!S.previewRef);
@@ -1909,7 +1907,7 @@ function rDash(m){
   <div class="topbar">
     <div><h1>Dashboard</h1><div style="font-size:11px;color:#888;margin-top:1px;">Good to see you, Iain</div></div>
     <div class="topbar-right">
-      <button onclick="S.privacyMode=!S.privacyMode;document.body.classList.toggle('privacy-on',!!S.privacyMode);rDash(document.getElementById('main-area'))"
+      <button onclick="S.privacyMode=!S.privacyMode;rDash(document.getElementById('main-area'))"
         style="background:${pm?'#1a2332':'#f5f5f3'};color:${pm?'#4ade80':'#555'};border:1px solid ${pm?'#276749':'#ddd'};padding:6px 11px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
         ${pm?'🔒 Private':'👁 Privacy'}
       </button>
@@ -3391,6 +3389,15 @@ function _phErr(img){try{var id=img.getAttribute('data-pid');if(!id)return;var n
   if(_phUrl[id]&&img.src!==_phUrl[id]){img.src=_phUrl[id];return;}
   img.style.minHeight='120px';img.style.background='#e9e9e6';img.alt='Photo still uploading';
   setTimeout(function(){if(img.isConnected)img.src=(_phUrl[id]||(SUPA_URL+'/photo/'+id+'?t='+Date.now()));},n<3?3000:20000);}catch(e){}}
+// phones sometimes drop photos (low memory, or a load that failed while the photo was still uploading): reload any photo that did not show, straight from the server
+function _phSweep(){try{document.querySelectorAll('img[data-pid]').forEach(function(im){
+  if(!im.isConnected||!im.complete||im.naturalWidth>0||im.__phb)return;
+  im.__phb=1;var id=im.getAttribute('data-pid');
+  fetch(SUPA_URL+'/photo/'+id+'?r='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.blob();}).then(function(b){im.src=URL.createObjectURL(b);im.style.minHeight='';im.style.background='';}).catch(function(){im.__phb=0;});
+});}catch(e){}}
+window.addEventListener('pageshow',function(){setTimeout(_phSweep,800);});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(_phSweep,800);});
+setInterval(_phSweep,4000);
 function _phMake(file){return new Promise(function(res,rej){
   var url=URL.createObjectURL(file),im=new Image();
   im.onload=function(){try{
