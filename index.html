@@ -2259,7 +2259,7 @@ function showEstModal(){
         <div class="cl-side" style="width:190px;display:flex;flex-direction:column;gap:8px;">
           <div class="fl"><label>Estimate #</label><input class="fi" value="${ne.ref}" readonly></div>
           <div class="fl"><label>Date</label><input class="fi" type="date" value="${ne.dateInput}" onchange="S.ne.dateInput=this.value"></div>
-          ${isInv?'':`<div class="fl"><label>Valid until (90 days)</label><input class="fi" value="${ne.expiryDate}" readonly></div>`}
+          ${isInv?'':`<div class="fl"><label>Valid until</label><input class="fi" type="date" value="${ne.expiryDate||''}" onchange="if(this.value)S.ne.expiryDate=this.value"></div>`}
         </div>
       </div>
       <div class="lih"><span>Description</span><span>Rate (£)</span><span>Qty</span><span>Total</span><span></span></div>
