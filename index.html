@@ -1218,8 +1218,9 @@ function saveLocal(){
     var sh2={};for(var k in sh)sh2[k]=sh[k];
     var slim=function(kind,l){return (l||[]).map(function(d){
       if(!d||!d.ref||_isDirty(kind,d))return d;
-      if(!(d.photos&&d.photos.length)&&!d.signature)return d;
-      var c=Object.assign({},d);c.photos=[];if(c.signature)c.signature='';c._slim=1;
+      var big=(d.photos||[]).some(function(x){return x&&x.data;});
+      if(!big&&!d.signature)return d;
+      var c=Object.assign({},d);c.photos=(d.photos||[]).filter(function(x){return x&&x.id&&!x.data;});if(c.signature)c.signature='';c._slim=1;
       sh2[kind+':'+d.ref]=_h(JSON.stringify(c));return c;});};
     localStorage.setItem(SKEY,JSON.stringify(Object.assign({},o,{estimates:slim('estimates',S.estimates),invoices:slim('invoices',S.invoices),syncHash:sh2})));
     return true;
@@ -1460,7 +1461,7 @@ function _bounceAct(d,read){
 async function _mergeTracking(kind,d){
   var srv=await _fetchDoc(kind,d.ref);
   if(!srv||typeof srv!=='object')return;
-  if(d._slim){if(!(d.photos&&d.photos.length)&&srv.photos&&srv.photos.length)d.photos=srv.photos;if(!d.signature&&srv.signature){d.signature=srv.signature;d.signedAt=srv.signedAt;}delete d._slim;}
+  if(d._slim){if((srv.photos||[]).length>(d.photos||[]).length)d.photos=srv.photos;if(!d.signature&&srv.signature){d.signature=srv.signature;d.signedAt=srv.signedAt;}delete d._slim;}
   if(srv.clientName&&d.clientName&&srv.clientName!==d.clientName&&!(_known&&_known.has(kind+':'+d.ref)))return;
   d.viewCount=Math.max(d.viewCount||0,srv.viewCount||0);
   d.openCount=Math.max(d.openCount||0,srv.openCount||0);
