@@ -5205,7 +5205,7 @@ function _apprTag(e){
   var col=e.bookedFor?'#75756e':(n>=42?'#c62828':n>=28?'#b45309':'#75756e');
   return '<div class="dl-wait" style="color:'+col+';">Approved '+txt+sp+'</div>';
 }
-function _apprSort(arr){return (arr||[]).map(function(x,n){return [x,n];}).sort(function(a,b){var ta=new Date(_apprAt(a[0])||a[0].date).getTime()||0,tb=new Date(_apprAt(b[0])||b[0].date).getTime()||0;return (tb-ta)||(a[1]-b[1]);}).map(function(p){return p[0];});}
+function _apprSort(arr){return (arr||[]).map(function(x,n){return [x,n];}).sort(function(a,b){var ta=new Date(_apprAt(a[0])||a[0].date).getTime()||0,tb=new Date(_apprAt(b[0])||b[0].date).getTime()||0;return ((a[0].bookedFor?1:0)-(b[0].bookedFor?1:0))||(tb-ta)||(a[1]-b[1]);}).map(function(p){return p[0];});}
 function _waitTag(e,kind){
   if(_isBounced(e))return '<div class="dl-wait" style="color:#c62828;font-weight:700;">⚠️ Email bounced — check the address</div>';
   if(kind!=='inv'&&e.status==='APPROVED')return _apprTag(e);
