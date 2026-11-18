@@ -1787,6 +1787,7 @@ function _spRow(e,kind,sel){
 function _spListHtml(fl,kind,selRef){
   const g=grpByMonth(fl);
   if(!fl.length)return `<div class="sp-empty">${kind==='inv'?'No invoices here.':'No estimates here.'}</div>`;
+  if(kind==='est'&&S.stab==='APPROVED')return _apprSort(fl).map(e=>_spRow(e,kind,e.ref===selRef)).join('');
   return Object.entries(g).map(([mo,items])=>`<div class="sp-month">${mo}</div>${items.map(e=>_spRow(e,kind,e.ref===selRef)).join('')}`).join('');
 }
 function _spFilter(kind){
@@ -2176,6 +2177,7 @@ function docRowHtml(e,kind){
   </div>`;
 }
 function docListHtml(g,kind){
+  if(kind==='est'&&S.stab==='APPROVED'){var all=[];Object.values(g).forEach(function(x){all=all.concat(x);});all=_apprSort(all);return '<div class="dl-month"><div class="dl-sum"><b>Approved jobs</b><span>Total: '+fmt(all.reduce(function(s,e){return s+calcGrandTotal(e);},0))+'</span></div>'+all.map(function(e){return docRowHtml(e,kind);}).join('')+'</div>';}
   return Object.entries(g).map(([mo,items])=>`<div class="dl-month">
     <div class="dl-sum"><b>${mo}</b><span>Total: ${fmt(items.reduce((s,e)=>s+calcGrandTotal(e),0))}</span></div>
     ${items.map(e=>docRowHtml(e,kind)).join('')}
@@ -2261,6 +2263,7 @@ function showEstModal(){
           <div class="fl"><label>Estimate #</label><input class="fi" value="${ne.ref}" readonly></div>
           <div class="fl"><label>Date</label><input class="fi" type="date" value="${ne.dateInput}" onchange="S.ne.dateInput=this.value"></div>
           ${isInv?'':`<div class="fl"><label>Valid until</label><input class="fi" type="date" value="${ne.expiryDate||''}" onchange="if(this.value)S.ne.expiryDate=this.value"></div>`}
+          ${(isInv||ne.status!=='APPROVED')?'':`<div class="fl"><label>Booked for</label><select class="fi" onchange="S.ne.bookedFor=this.value"><option value="" ${!ne.bookedFor?'selected':''}>Not set</option><option value="Spring 2027" ${ne.bookedFor==='Spring 2027'?'selected':''}>Spring 2027</option></select></div>`}
         </div>
       </div>
       <div class="lih"><span>Description</span><span>Rate (£)</span><span>Qty</span><span>Total</span><span></span></div>
@@ -4113,6 +4116,7 @@ function renderDesktopPreview(doc,c,grand,isI,showQty,showRate,showTotal){
           <tr><td style="padding:3px 0;padding-right:16px;color:#333;font-weight:400;font-size:14px;">${isI?'Invoice':'Quote'} #</td><td style="padding:3px 0;font-weight:400;color:#333;">${doc.ref}</td></tr>
           <tr><td style="padding:3px 0;padding-right:16px;color:#333;font-weight:400;font-size:14px;">Date</td><td style="padding:3px 0;font-weight:400;color:#333;">${fdLong(doc.date)}</td></tr>
           ${!isI&&doc.expiryDate?`<tr><td style="padding:3px 0;padding-right:16px;color:#333;font-weight:400;font-size:14px;">Valid Until</td><td style="padding:3px 0;font-weight:400;color:#333;">${fdLong(doc.expiryDate)}</td></tr>`:''}
+          ${!isI&&doc._jobStart?`<tr><td style="padding:3px 0;padding-right:16px;color:#333;font-weight:700;font-size:14px;">Start</td><td style="padding:3px 0;font-weight:700;color:#333;">${_esc(doc._jobStart)}</td></tr>`:''}
         </table>
       </div>
     </div>
@@ -4356,7 +4360,8 @@ function printDoc(){
   var isI=doc.ref.includes('invoice'),sub=tot(doc.lineItems);
   var grand=isI?sub+(doc.vat?sub*0.2:0):calcGrandTotal(doc);
   var o=S.displayOpts||{};
-  var body=renderDesktopPreview(doc,S.co,grand,isI,o.qty!==false,doc.showRate===true,o.total!==false);
+  var pdoc=(!isI&&doc.bookedFor)?Object.assign({},doc,{_jobStart:doc.bookedFor}):doc;
+  var body=renderDesktopPreview(pdoc,S.co,grand,isI,o.qty!==false,doc.showRate===true,o.total!==false);
   var old=document.getElementById('print-frame');if(old)old.remove();
   var f=document.createElement('iframe');f.id='print-frame';
   f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
@@ -5191,8 +5196,19 @@ function _days(iso){var t=new Date(iso).getTime();return t?Math.max(0,Math.floor
 function _ago(iso){var n=_days(iso);return n===0?'today':n===1?'yesterday':n+' days ago';}
 function _openDoc(d,isI){return isI?(d.status!=='PAID'):(d.status==='PENDING'||!d.status)&&!d.signature;}
 function _canChase(d,isI){return !!(d&&d.emailed&&d.shareKey&&_openDoc(d,isI)&&/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(d.email||''));}
+function _apprAt(e){return (e&&(e.signedAt||e.approvedAt))||'';}
+function _calDays(iso){var d=new Date(iso);if(isNaN(d.getTime()))return 0;var a=new Date(d.getFullYear(),d.getMonth(),d.getDate()),n=new Date(),b=new Date(n.getFullYear(),n.getMonth(),n.getDate());return Math.max(0,Math.round((b-a)/86400000));}
+function _apprTag(e){
+  var at=_apprAt(e),sp=e.bookedFor?'<span style="background:#e8f0fe;color:#1a56b0;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px;">'+_esc(e.bookedFor)+'</span>':'';
+  if(!at)return '<div class="dl-wait" style="color:#9a9a92;">Approved (date unknown)'+sp+'</div>';
+  var n=_calDays(at),txt=n===0?'today':n===1?'1 day ago':n<56?n+' days ago':Math.floor(n/7)+' weeks ago';
+  var col=e.bookedFor?'#75756e':(n>=42?'#c62828':n>=28?'#b45309':'#75756e');
+  return '<div class="dl-wait" style="color:'+col+';">Approved '+txt+sp+'</div>';
+}
+function _apprSort(arr){return (arr||[]).map(function(x,n){return [x,n];}).sort(function(a,b){var ta=new Date(_apprAt(a[0])||a[0].date).getTime()||0,tb=new Date(_apprAt(b[0])||b[0].date).getTime()||0;return (tb-ta)||(a[1]-b[1]);}).map(function(p){return p[0];});}
 function _waitTag(e,kind){
   if(_isBounced(e))return '<div class="dl-wait" style="color:#c62828;font-weight:700;">⚠️ Email bounced — check the address</div>';
+  if(kind!=='inv'&&e.status==='APPROVED')return _apprTag(e);
   var isI=kind==='inv';if(!e.emailed||!_openDoc(e,isI))return '';
   var n=_days(e.emailedAt||e.date);
   var txt=(isI?'Invoice sent ':'Sent ')+(n===0?'today':n===1?'yesterday':n+' days ago')+(isI?'':' · not signed');
